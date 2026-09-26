@@ -1,0 +1,67 @@
+name: Build installer
+
+# - A chaque tag "v1.2.3" pousse: construit l'installateur et le publie dans une Release GitHub.
+# - "Run workflow" (onglet Actions): construit l'installateur et le met en artefact telechargeable.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then v="${GITHUB_REF#refs/tags/v}"; else v="0.0.0-dev"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Smoke test (imports)
+        working-directory: toolkit
+        run: python -c "import paths, market_scan, osrs_alerts, launcher; print('imports ok')"
+
+      - name: Build exe (PyInstaller)
+        run: >
+          pyinstaller --noconfirm --clean --onedir --console
+          --name "OSRS GE Toolkit"
+          --icon assets/icon.ico
+          --paths toolkit
+          --hidden-import market_scan --hidden-import osrs_alerts --hidden-import winotify
+          toolkit/launcher.py
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DMyAppVersion=${{ steps.ver.outputs.version }}" installer\toolkit.iss'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OSRS-GE-Toolkit-Setup
+          path: dist/OSRS-GE-Toolkit-Setup-*.exe
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/OSRS-GE-Toolkit-Setup-*.exe
+          generate_release_notes: true
