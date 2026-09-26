@@ -1,12 +1,13 @@
-; Installateur Windows de OSRS GE Toolkit (Inno Setup 6).
-; Construit automatiquement par .github/workflows/release.yml.
-; Build local:  iscc /DMyAppVersion=1.0.0 installer\toolkit.iss
+; Windows installer for OSRS GE Toolkit (Inno Setup 6).
+; Built automatically by .github/workflows/release.yml.
+; Local build:  iscc /DMyAppVersion=1.1.0 installer\toolkit.iss
 
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0.0"
+  #define MyAppVersion "1.1.0"
 #endif
 #define MyAppName "OSRS GE Toolkit"
 #define MyAppExe "OSRS GE Toolkit.exe"
+#define McpExe "mcp\osrs-ge-mcp.exe"
 #define MyAppURL "https://github.com/Gorsokk/osrs-ge-toolkit"
 
 [Setup]
@@ -16,7 +17,8 @@ AppVersion={#MyAppVersion}
 AppPublisher=Gorsokk
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}/issues
-; Installation par utilisateur: pas besoin de droits administrateur
+AppUpdatesURL={#MyAppURL}/releases
+; per-user install: no admin rights needed
 PrivilegesRequired=lowest
 DefaultDirName={localappdata}\Programs\{#MyAppName}
 DefaultGroupName={#MyAppName}
@@ -28,27 +30,46 @@ UninstallDisplayIcon={app}\{#MyAppExe}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-; relancer l'installateur ferme d'abord une version en cours
+; close the running app (tray) before updating it
+AppMutex=OSRSGEToolkit
 CloseApplications=yes
 
 [Languages]
-Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "french"; MessagesFile: "compiler:Languages\French.isl"
+
+[CustomMessages]
+english.ConnectClaude=Connect to the Claude desktop app (recommended) — ask Claude about your account
+french.ConnectClaude=Connecter à l'application Claude (recommandé) — pose des questions à Claude sur ton compte
+english.StartWithWindows=Start with Windows (runs quietly in the tray)
+french.StartWithWindows=Démarrer avec Windows (discrètement, près de l'horloge)
+english.Extras=Extras:
+french.Extras=Options :
 
 [Tasks]
+Name: "connectclaude"; Description: "{cm:ConnectClaude}"; GroupDescription: "{cm:Extras}"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+Name: "startup"; Description: "{cm:StartWithWindows}"; GroupDescription: "{cm:Extras}"; Flags: unchecked
 
 [Files]
 Source: "..\dist\OSRS GE Toolkit\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
-Name: "{group}\Dossier de configuration"; Filename: "{userappdata}\{#MyAppName}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: desktopicon
 
+[Registry]
+; same value the app's "Start with Windows" switch uses
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#MyAppName}"; \
+  ValueData: """{app}\{#MyAppExe}"" --background"; Flags: uninsdeletevalue; Tasks: startup
+
 [Run]
+Filename: "{app}\{#McpExe}"; Parameters: "--connect-claude"; Flags: runhidden waituntilterminated; Tasks: connectclaude; \
+  StatusMsg: "Connecting to Claude..."
 Filename: "{app}\{#MyAppExe}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
 
-; La config et l'historique (%APPDATA%\OSRS GE Toolkit) sont gardes a la desinstallation,
-; pour ne rien perdre lors d'une mise a jour.
+[UninstallRun]
+Filename: "{app}\{#McpExe}"; Parameters: "--disconnect-claude"; Flags: runhidden waituntilterminated; RunOnceId: "DisconnectClaude"
+
+; Settings and history (%APPDATA%\OSRS GE Toolkit) are kept on uninstall, so updates lose nothing.

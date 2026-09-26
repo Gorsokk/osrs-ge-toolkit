@@ -38,6 +38,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 # ------------------------------------------------------------------ chemins ---
+from i18n import t
 from paths import RUNELITE_ROOT, DATA_DIR, USER_AGENT  # %APPDATA%\\OSRS GE Toolkit
 CHAR_CHOICE_FILE = DATA_DIR / "_last_character.txt"
 CONFIG_FILE = DATA_DIR / "alerts_config.json"
@@ -51,17 +52,14 @@ BOND_ID = 13190
 # ------------------------------------------------------ config par defaut ---
 # Cree alerts_config.json au premier lancement. Modifie ce fichier-la, pas le script.
 DEFAULT_CONFIG = {
-    "_aide": "Modifie les valeurs puis relance run_alerts.bat. Mets enabled a false pour couper une categorie.",
+    "_help": "Edit these from the dashboard Settings page. Set enabled to false to turn a category off.",
     "poll_seconds": 60,
 
     "ge_offers": {
         "enabled": True,
-        "_aide_unrealistic": "Alerte si ta VENTE est X % au-dessus du dernier prix de vente reel (ou ton ACHAT X % sous le dernier prix d'achat) depuis plus de N minutes.",
         "unrealistic_pct": 3.0,
         "unrealistic_after_min": 30,
-        "_aide_partial": "Achats/ventes partiels: une seule alerte par palier franchi (ex. 25, 50, 75 %). La fin (100 %) est toujours signalee.",
         "partial_milestones_pct": [25, 50, 75],
-        "_aide_watch": "OPTIONNEL: tes achats faits via la GE sont suivis automatiquement (cout, profit, alerte de revente). Ici seulement pour des objets achetes AVANT le lancement du script, ou pour des seuils perso. 'cost' = ton prix d'achat. sell_alert_at: alerte si le marche paye >= ce prix. buy_alert_at: alerte si on peut acheter <= ce prix.",
         "watch": {}
     },
 
@@ -86,7 +84,7 @@ DEFAULT_CONFIG = {
         "min_price": 50,
         "cooldown_hours": 6,
         "max_alerts_per_scan": 3,
-        "_aide_bond": "Alerte bond RELATIVE: quand le bond passe X % sous sa moyenne des 7 derniers jours. bond_alert_below (seuil fixe en gp) reste possible, 0 = desactive.",
+        "bond_enabled": True,
         "bond_alert_pct_below_7d": 3.0,
         "bond_alert_below": 0
     },
@@ -94,14 +92,12 @@ DEFAULT_CONFIG = {
     "news": {
         "enabled": True,
         "check_every_min": 15,
-        "_aide": "Toutes les news sont signalees; celles qui contiennent ces mots sont marquees IMPORTANT (avec son).",
         "priority_keywords": ["game update", "leagues", "deadman", "wilderness", "pvp", "bond",
                                "limited", "event", "double", "bonus", "grid", "poll", "sailing"]
     },
 
     "stockpile": {
         "enabled": True,
-        "_aide": "Materiaux de leveling. Alerte quand le prix actuel est dans les 'percentile' % les plus bas des 90 derniers jours ET au moins 'min_discount_pct' % sous la mediane.",
         "percentile": 20,
         "min_discount_pct": 8.0,
         "refresh_history_hours": 6,
@@ -239,7 +235,7 @@ class Notifier:
                 n = Notification(app_id="OSRS GE Toolkit", title=full_title, msg=body,
                                  duration="long" if important else "short")
                 if url:
-                    n.add_actions(label="Ouvrir", launch=url)
+                    n.add_actions(label=t("open"), launch=url)
                 n.set_audio(win_audio.LoopingAlarm if important else win_audio.Default, loop=False)
                 n.show()
                 return
@@ -256,14 +252,9 @@ class Notifier:
 
 # ------------------------------------------------------------ export dir ---
 def find_export_dir():
-    if not RUNELITE_ROOT.exists():
-        return None
-    chars = sorted(p.name for p in RUNELITE_ROOT.iterdir() if p.is_dir())
-    if CHAR_CHOICE_FILE.exists():
-        name = CHAR_CHOICE_FILE.read_text(encoding="utf-8").strip()
-        if name in chars:
-            return RUNELITE_ROOT / name
-    return RUNELITE_ROOT / chars[0] if chars else None
+    """Selected character (dashboard setting), else the most recently played one."""
+    import data
+    return data.resolve_character(None)[1]
 
 
 # ---------------------------------------------------------------- moteur ---
@@ -379,13 +370,15 @@ class Alerts:
                 if s.get("type") == "BUY":
                     body = self._on_buy(name, s.get("item_id"), dq, dspent)
                     if should_notify:
-                        self.notify("GE", f"{name}: achat {'TERMINE' if done else f'{int(pct_now)} %'}",
-                                    f"{filled}/{total} achetes (moy. {gp(avg_lot)}). {body}", important=done)
+                        self.notify("GE", t("buy_done", name=name) if done else t("buy_pct", name=name, pct=int(pct_now)),
+                                    t("bought_body", filled=filled, total=total, avg=gp(avg_lot), extra=body),
+                                    important=done)
                 else:
                     body = self._on_sell(name, dq, avg_lot)
                     if should_notify:
-                        self.notify("GE", f"{name}: vente {'TERMINEE' if done else f'{int(pct_now)} %'}",
-                                    f"{filled}/{total} vendus (moy. {gp(avg_lot)}). {body}", important=done)
+                        self.notify("GE", t("sell_done", name=name) if done else t("sell_pct", name=name, pct=int(pct_now)),
+                                    t("sold_body", filled=filled, total=total, avg=gp(avg_lot), extra=body),
+                                    important=done)
             seen[slot] = {"key": key, "filled": filled, "spent": spent}
             self._check_unrealistic(slot, s)
         save_json(STATE_FILE, self.state)
@@ -406,14 +399,14 @@ class Alerts:
         h1 = self.h1.get(str(item_id)) or {}
         d = self.h24.get(str(item_id)) or {}
         target = min([p for p in (h1.get("avgHighPrice"), d.get("avgHighPrice")) if p] or [be])
-        tip = (f"Revends a ~{gp(target)} (+{gp((net_sell(target) - avg) * pos['qty'])} sur {pos['qty']})."
-               if target > be else "Le marche ne paye pas encore assez: attends.")
-        return f"Cout moyen {gp(avg)}, rentable des {gp(be)}. {tip}"
+        tip = (t("resell_tip", target=gp(target), profit=gp((net_sell(target) - avg) * pos['qty']), qty=pos['qty'])
+               if target > be else t("wait_tip"))
+        return t("cost_line", avg=gp(avg), be=gp(be), tip=tip)
 
     def _on_sell(self, name, dq, avg_sell):
         cost = self._cost_of(name)
         if cost is None:
-            return "(cout d'achat inconnu: achete avant le lancement du script)"
+            return t("unknown_cost")
         profit = (net_sell(avg_sell) - cost) * dq
         self.state["realized"].append({"ts": time.time(), "item": name, "profit": profit})
         pos = self.state["positions"].get(name)
@@ -424,7 +417,7 @@ class Alerts:
             if pos["qty"] <= 0:
                 self.state["positions"].pop(name, None)
         day = sum(r["profit"] for r in self.state["realized"] if time.time() - r["ts"] < 86400)
-        return f"Profit net {gp(profit)} (taxe incluse). Total 24h: {gp(day)}."
+        return t("profit_line", profit=gp(profit), day=gp(day))
 
     def _check_positions(self):
         """Alerte quand une position achetee peut etre revendue avec profit."""
@@ -437,9 +430,9 @@ class Alerts:
             avg = pos["cost_total"] / pos["qty"]
             if hi and net_sell(hi) - avg >= max(1, avg * 0.01):
                 if self.cooldown_ok(f"pos:{name}", 1):
-                    self.notify("SEUIL", f"{name}: vends maintenant",
-                                f"Le marche paye {gp(hi)}. Tu en as {pos['qty']} a {gp(avg)} -> "
-                                f"+{gp((net_sell(hi) - avg) * pos['qty'])} net.", important=True)
+                    self.notify("TARGET", t("sell_now", name=name),
+                                t("sell_now_body", hi=gp(hi), qty=pos['qty'], avg=gp(avg),
+                                  profit=gp((net_sell(hi) - avg) * pos['qty'])), important=True)
 
     def _watch(self, name):
         for k, v in self.cfg["ge_offers"].get("watch", {}).items():
@@ -459,11 +452,11 @@ class Alerts:
         if s.get("type") == "SELL" and lt.get("high"):
             ref = min(lt["high"], (self.h1.get(str(s["item_id"])) or {}).get("avgHighPrice") or lt["high"])
             if price > ref * (1 + c["unrealistic_pct"] / 100):
-                bad = f"Tu vends a {gp(price)}, le marche paye ~{gp(ref)}."
+                bad = t("stuck_sell", price=gp(price), ref=gp(ref))
         elif s.get("type") == "BUY" and lt.get("low"):
             ref = max(lt["low"], (self.h1.get(str(s["item_id"])) or {}).get("avgLowPrice") or lt["low"])
             if price < ref * (1 - c["unrealistic_pct"] / 100):
-                bad = f"Tu achetes a {gp(price)}, les vendeurs sont a ~{gp(ref)}."
+                bad = t("stuck_buy", price=gp(price), ref=gp(ref))
         since = self.state["unrealistic_since"]
         if not bad:
             since.pop(slot, None)
@@ -471,8 +464,8 @@ class Alerts:
         since.setdefault(slot, time.time())
         if time.time() - since[slot] >= c["unrealistic_after_min"] * 60:
             if self.cooldown_ok(f"unreal:{slot}:{s.get('item_id')}:{price}", 2):
-                self.notify("GE", f"{s.get('item_name')}: offre bloquee?",
-                            bad + f" Rien ne bouge depuis {c['unrealistic_after_min']} min.")
+                self.notify("GE", t("stuck", name=s.get('item_name')),
+                            bad + t("stuck_tail", min=c['unrealistic_after_min']))
 
     def _check_watch(self):
         for name, w in self.cfg["ge_offers"].get("watch", {}).items():
@@ -483,13 +476,13 @@ class Alerts:
             hi, lo = lt.get("high"), lt.get("low")
             if w.get("sell_alert_at") and hi and hi >= w["sell_alert_at"]:
                 if self.cooldown_ok(f"watch-sell:{name}", 1):
-                    extra = f" Profit net ~{gp(net_sell(hi) - w['cost'])}/u." if w.get("cost") else ""
-                    self.notify("SEUIL", f"{name} a {gp(hi)}",
-                                f"Le marche paye >= ton seuil de {gp(w['sell_alert_at'])}.{extra}", important=True)
+                    extra = t("watch_sell_extra", profit=gp(net_sell(hi) - w['cost'])) if w.get("cost") else ""
+                    self.notify("TARGET", t("watch_hit", name=name, price=gp(hi)),
+                                t("watch_sell_body", target=gp(w['sell_alert_at']), extra=extra), important=True)
             if w.get("buy_alert_at") and lo and lo <= w["buy_alert_at"]:
                 if self.cooldown_ok(f"watch-buy:{name}", 1):
-                    self.notify("SEUIL", f"{name} a {gp(lo)}",
-                                f"Achetable sous ton seuil de {gp(w['buy_alert_at'])}.", important=True)
+                    self.notify("TARGET", t("watch_hit", name=name, price=gp(lo)),
+                                t("watch_buy_body", target=gp(w['buy_alert_at'])), important=True)
 
     # ----- 2. vrais flips
     def check_flips(self):
@@ -536,9 +529,9 @@ class Alerts:
             if sent >= c["max_alerts_per_scan"]:
                 break
             if self.cooldown_ok(f"flip:{iid}", c["cooldown_hours"]):
-                self.notify("FLIP", f"Flip: {name} (+{gp(profit)}/cycle)",
-                            f"Achat {gp(buy)} -> vente {gp(sell)} = {margin} net/u apres taxe ({roi:.1f} %). "
-                            f"Qte {qty} (capital {gp(buy*qty)}). Verifie le prix en jeu avant.",
+                self.notify("FLIP", t("flip_title", name=name, profit=gp(profit)),
+                            t("flip_body", buy=gp(buy), sell=gp(sell), margin=margin, roi=f"{roi:.1f}",
+                              qty=qty, capital=gp(buy * qty)),
                             important=profit >= 2 * c["min_profit_per_cycle"])
                 sent += 1
 
@@ -576,16 +569,17 @@ class Alerts:
                 break
             if self.cooldown_ok(f"move:{sid}:{'up' if move > 0 else 'dn'}", c["cooldown_hours"]):
                 name = self.name(sid)
-                kind = "PIC" if move > 0 else "CRASH"
-                self.notify("MARCHE", f"{kind} {name}: {move:+.1f} %",
-                            f"{gp(mid24)} (moy. 24h) -> {gp(mid5)} (5 min), {vol5} echanges en 5 min, "
-                            f"confirme sur 1h. Souvent = annonce de mise a jour ou ban de bots.",
+                kind = t("spike") if move > 0 else t("crash")
+                self.notify("MARKET", t("move_title", kind=kind, name=name, move=f"{move:+.1f}"),
+                            t("move_body", avg24=gp(mid24), now=gp(mid5), vol=vol5),
                             important=abs(move) >= 2 * c["min_move_pct"])
                 sent += 1
-        # bond
-        self.check_bond(c)
 
-    def check_bond(self, c):
+    def check_bond(self):
+        """Bond alerts are independent from the crash/spike switch."""
+        c = self.cfg["moves"]
+        if not c.get("bond_enabled", True):
+            return
         bl = (self.latest.get(str(BOND_ID)) or {}).get("low")
         if not bl:
             return
@@ -605,12 +599,12 @@ class Alerts:
             seuil = self.bond_avg_7d * (1 - pct / 100)
             if bl <= seuil and self.cooldown_ok("bond-rel", 6):
                 ecart = (self.bond_avg_7d - bl) / self.bond_avg_7d * 100
-                self.notify("BOND", f"Bond a {gp(bl)} (-{ecart:.1f} % vs 7 j)",
-                            f"Moyenne 7 jours: {gp(self.bond_avg_7d)}. Seuil: -{pct:g} % = {gp(seuil)}.",
+                self.notify("BOND", t("bond_rel", price=gp(bl), pct=f"{ecart:.1f}"),
+                            t("bond_rel_body", avg=gp(self.bond_avg_7d), thr=f"{pct:g}", level=gp(seuil)),
                             important=True)
         fixe = c.get("bond_alert_below") or 0
         if fixe and bl <= fixe and self.cooldown_ok("bond-low", 2):
-            self.notify("BOND", f"Bond a {gp(bl)}", f"Sous ton seuil fixe de {gp(fixe)}.", important=True)
+            self.notify("BOND", t("bond_fixed", price=gp(bl)), t("bond_fixed_body", target=gp(fixe)), important=True)
 
     # ----- 4. news
     def check_news(self):
@@ -636,7 +630,7 @@ class Alerts:
         for guid, title, cat, desc, link in reversed(new):
             text = f"{title} {cat} {desc}".lower()
             important = any(k in text for k in c["priority_keywords"])
-            self.notify("NEWS", f"OSRS: {title}", f"[{cat}] {desc[:180]}", important=important, url=link)
+            self.notify("NEWS", t("news_title", title=title), f"[{cat}] {desc[:180]}", important=important, url=link)
             self.state["news_seen"].insert(0, guid)
         self.state["news_seen"] = self.state["news_seen"][:200]
 
@@ -678,15 +672,16 @@ class Alerts:
             if now <= hist["p"] and disc >= c["min_discount_pct"]:
                 if self.cooldown_ok(f"stock:{m['id']}", c["cooldown_hours"]):
                     lim = m.get("limit")
-                    self.notify("STOCK", f"Stocker: {name} a {gp(now)}",
-                                f"{disc:.0f} % sous la mediane 90 j ({gp(hist['med'])}), plus bas 90 j: {gp(hist['min'])}. "
-                                f"Limite GE: {lim or '?'} / 4h.",
+                    self.notify("STOCK", t("stock_title", name=name, price=gp(now)),
+                                t("stock_body", disc=f"{disc:.0f}", med=gp(hist['med']), low=gp(hist['min']),
+                                  limit=lim or '?'),
                                 important=disc >= 2 * c["min_discount_pct"])
 
     # ----- boucle
     def run_once(self):
         self.refresh_prices()
-        for fn in (self.check_offers, self.check_moves, self.check_flips, self.check_news, self.check_stockpile):
+        for fn in (self.check_offers, self.check_moves, self.check_bond, self.check_flips, self.check_news,
+                   self.check_stockpile):
             try:
                 fn()
             except Exception as e:
@@ -729,6 +724,11 @@ def run_forever(export_dir=None, once=False):
     log(f"OSRS alertes demarrees. Perso: {export_dir.name if export_dir else '(aucun export trouve)'}. "
         f"Pop-ups: {'winotify' if HAVE_WINOTIFY else 'fenetre simple'}.")
     while True:
+        # follow a character switch made in the dashboard
+        current = find_export_dir()
+        if current and current != eng.export_dir:
+            log(f"Character changed: {current.name}")
+            eng = Alerts(load_config(), current)
         try:
             eng.run_once()
         except KeyboardInterrupt:

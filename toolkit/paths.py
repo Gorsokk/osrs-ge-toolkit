@@ -1,17 +1,18 @@
-"""Emplacements partages par le scanner, les alertes et le lanceur.
+"""Locations shared by the app, the scanner, the alerts and the Claude connector.
 
-- RUNELITE_ROOT : ou le plugin Character Export (Plugin Hub) et Position Exporter
-  ecrivent leurs fichiers JSON (un sous-dossier par personnage).
-- DATA_DIR : config + etat des outils. Sur Windows: %APPDATA%\\OSRS GE Toolkit
-  (toujours inscriptible, meme si l'appli est installee dans Program Files,
-  et conserve lors d'une mise a jour ou reinstallation).
+- RUNELITE_ROOT: where the RuneLite plugins "Character Export" (Plugin Hub) and
+  "Position Exporter" write their JSON files (one sub-folder per character).
+- DATA_DIR: the toolkit's own settings, alert config, state and log.
+  Windows: %APPDATA%\\OSRS GE Toolkit (kept across updates and reinstalls).
+- RESOURCE_DIR: bundled read-only files (web/dashboard.html), also when frozen by PyInstaller.
 """
 import os
 import sys
 from pathlib import Path
 
 APP_NAME = "OSRS GE Toolkit"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
+GITHUB_REPO = "Gorsokk/osrs-ge-toolkit"
 
 RUNELITE_ROOT = Path.home() / ".runelite" / "character-exporter"
 
@@ -21,5 +22,12 @@ else:
     DATA_DIR = Path.home() / ".config" / "osrs-ge-toolkit"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-# Le OSRS Wiki demande un User-Agent descriptif avec un moyen de contact.
-USER_AGENT = f"osrs-ge-toolkit/{VERSION} (+https://github.com/Gorsokk/osrs-ge-toolkit)"
+if getattr(sys, "frozen", False):
+    RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+else:
+    RESOURCE_DIR = Path(__file__).resolve().parent
+
+LOG_FILE = DATA_DIR / "toolkit.log"
+
+# The OSRS Wiki asks for a descriptive User-Agent with a way to contact the author.
+USER_AGENT = f"osrs-ge-toolkit/{VERSION} (+https://github.com/{GITHUB_REPO})"

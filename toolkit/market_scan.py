@@ -132,50 +132,15 @@ def net_sell(price):
 
 
 def find_export_dir(char_arg=None):
-    """Figure out which exported character to use, with zero editing required.
-
-    - If --char NAME was passed, use that.
-    - Else if there's only one exported character, use it automatically.
-    - Else if we remember a previous choice (and it's still there), reuse it.
-    - Else ask once and remember the answer for next time.
-    """
-    if not RUNELITE_ROOT.exists():
-        sys.exit(
-            f"Error: {RUNELITE_ROOT} does not exist.\n"
-            "Make sure RuneLite is installed with the 'character-exporter' plugin "
-            "enabled, and that you've opened your bank in-game at least once so it "
-            "can create an export."
-        )
-
-    available = sorted(p.name for p in RUNELITE_ROOT.iterdir() if p.is_dir())
-    if not available:
-        sys.exit(
-            f"Error: no exported characters found in {RUNELITE_ROOT}.\n"
-            "Open your bank in-game once with the character-exporter plugin "
-            "enabled to create one."
-        )
-
-    if char_arg:
-        if char_arg not in available:
-            sys.exit(f"Error: no export found for '{char_arg}'. Available: {', '.join(available)}")
-        chosen = char_arg
-    elif len(available) == 1:
-        chosen = available[0]
-    elif CHAR_CHOICE_FILE.exists() and CHAR_CHOICE_FILE.read_text(encoding="utf-8").strip() in available:
-        chosen = CHAR_CHOICE_FILE.read_text(encoding="utf-8").strip()
-    else:
-        print("Multiple exported characters found:")
-        for i, name in enumerate(available, 1):
-            print(f"  {i}. {name}")
-        while True:
-            pick = input(f"Which one is yours? (1-{len(available)}): ").strip()
-            if pick.isdigit() and 1 <= int(pick) <= len(available):
-                chosen = available[int(pick) - 1]
-                break
-            print("Invalid choice, try again.")
-
-    CHAR_CHOICE_FILE.write_text(chosen, encoding="utf-8")
-    return RUNELITE_ROOT / chosen
+    """Character to scan: --char / explicit name, else the one chosen in the dashboard,
+    else the most recently played. Never prompts (the app runs without a console)."""
+    import data
+    name, folder = data.resolve_character(char_arg)
+    if not folder:
+        raise RuntimeError(
+            f"No game data in {RUNELITE_ROOT}. Install the RuneLite plugin 'Character Export' "
+            "(Plugin Hub), log in and open your bank once.")
+    return folder
 
 
 def setup_paths(char_arg=None):
@@ -255,13 +220,13 @@ def main():
     budget_per_slot = capital_gp // free_slots if free_slots else 0
     bank_age_min = file_age_min(BANK_JSON)
 
-    print(f"Mode: {mode} | Magic: {magic_level} | Cash libre: {capital_gp:,} gp "
-          f"| Slots libres: {free_slots}/{GE_SLOTS} | Budget/slot libre: {budget_per_slot:,} gp")
+    print(f"Mode: {mode} | Magic: {magic_level} | Free cash: {capital_gp:,} gp "
+          f"| Free slots: {free_slots}/{GE_SLOTS} | Budget/free slot: {budget_per_slot:,} gp")
     if ge_state:
-        print(f"GE: {ge_state['active']} actives, {ge_state['ready_to_collect']} a collecter, "
-              f"{ge_state['gp_locked_in_buys']:,} gp bloques dans les achats")
+        print(f"GE: {ge_state['active']} actives, {ge_state['ready_to_collect']} to collect, "
+              f"{ge_state['gp_locked_in_buys']:,} gp locked in buys")
     if bank_age_min is not None and bank_age_min > 30:
-        print(f"ATTENTION: bank.json date de {bank_age_min:.0f} min -- ouvre ta banque en jeu pour rafraichir le cash.")
+        print(f"WARNING: bank.json is {bank_age_min:.0f} min old -- open your bank in game to refresh cash.")
 
     mapping = get_mapping()
     by_id = {m["id"]: m for m in mapping}
@@ -495,355 +460,10 @@ def main():
         print(f"Top 3 alch: {[a['name'] for a in best_alch[:3]]}")
 
 
-DASHBOARD_HTML = """<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="utf-8">
-<title>GE Scan — Live</title>
-<style>
-  :root {
-    --bg: #14171c; --panel: #1c2028; --border: #2a2f3a;
-    --text: #e8eaed; --muted: #8a919e; --green: #4caf7d;
-    --red: #e0616b; --amber: #d9a441; --accent: #6ea8fe;
-  }
-  * { box-sizing: border-box; }
-  body {
-    background: var(--bg); color: var(--text);
-    font-family: -apple-system, Segoe UI, Roboto, sans-serif;
-    margin: 0; padding: 20px;
-  }
-  h1 { font-size: 18px; margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
-  .stale { color: var(--red); font-weight: 600; }
-  .cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 22px; }
-  .card {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 10px; padding: 12px 16px; min-width: 140px;
-  }
-  .card .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
-  .card .value { font-size: 20px; font-weight: 600; margin-top: 2px; }
-  h2 { font-size: 14px; color: var(--accent); margin: 24px 0 8px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--border); }
-  th:first-child, td:first-child { text-align: left; }
-  th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
-  tr:hover { background: rgba(255,255,255,0.03); }
-  .vol { color: var(--amber); font-weight: 600; }
-  .ok { color: var(--green); }
-  .wildy-banner {
-    border-radius: 10px; padding: 10px 16px; margin-bottom: 18px;
-    font-weight: 600; display: none;
-  }
-  .wildy-safe { background: rgba(76,175,125,0.12); border: 1px solid var(--green); color: var(--green); }
-  .wildy-low { background: rgba(217,164,65,0.12); border: 1px solid var(--amber); color: var(--amber); }
-  .wildy-high { background: rgba(224,97,107,0.15); border: 1px solid var(--red); color: var(--red); }
-  .tip {
-    background: rgba(110,168,254,0.10); border: 1px solid var(--accent);
-    border-radius: 10px; padding: 10px 16px; margin: 10px 0 4px;
-    font-size: 13px; color: var(--text);
-  }
-  .bar { background: var(--border); border-radius: 4px; height: 6px; width: 90px; display: inline-block; vertical-align: middle; margin-right: 6px; }
-  .bar > span { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
-  .bar.done > span { background: var(--green); }
-  .tag { font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
-  .tag.buy { color: var(--accent); border-color: var(--accent); }
-  .tag.sell { color: var(--amber); border-color: var(--amber); }
-  .tag.ready { color: var(--green); border-color: var(--green); }
-  #geOffers th:nth-child(2), #geOffers td:nth-child(2), #geOffers td:last-child, #geOffers th:last-child { text-align: left; }
-  .warn { color: var(--amber); }
-  .bad { color: var(--red); }
-  .muted { color: var(--muted); }
-  footer { margin-top: 24px; color: var(--muted); font-size: 11px; }
-</style>
-</head>
-<body>
-  <h1>GE Scan — Live</h1>
-  <div class="sub" id="meta">Chargement...</div>
-  <div class="wildy-banner" id="wildyBanner"></div>
-  <div class="cards" id="cards"></div>
-
-  <h2>Mes offres GE <span class="muted" id="geAge" style="font-weight:400"></span></h2>
-  <table id="geOffers"><thead></thead><tbody></tbody></table>
-
-  <h2>Flips les plus rapides à remplir</h2>
-  <table id="fastest"><thead></thead><tbody></tbody></table>
-
-  <h2>Meilleur gp/heure</h2>
-  <table id="yield"><thead></thead><tbody></tbody></table>
-
-  <h2>Alch</h2>
-  <table id="alch"><thead></thead><tbody></tbody></table>
-
-  <h2>Progression — Diaries</h2>
-  <table id="diaries"><thead></thead><tbody></tbody></table>
-
-  <h2>Progression — Combat Achievements</h2>
-  <table id="ca"><thead></thead><tbody></tbody></table>
-  <div class="tip" id="wildyTip" style="display:none;"></div>
-
-  <footer id="refresh">—</footer>
-
-<script>
-const FLIP_COLS = [
-  ["name","Item"], ["buy_at","Achat"], ["sell_at","Vente"],
-  ["roi_pct","ROI %"], ["qty_per_cycle","Qté"], ["gp_per_hour","gp/h"],
-  ["capital_needed","Capital"], ["fill_ratio","Remplissage"]
-];
-const ALCH_COLS = [
-  ["name","Item"], ["buy_at","Achat"], ["max_buy_price","Achat max"], ["alch_value","Valeur alch"],
-  ["profit_per_cast","Profit/cast"], ["gp_per_hour","gp/h (alch)"], ["capital_1h","Capital 1h"],
-  ["qty_per_cycle","Qté / 4h"], ["profit_per_cycle","Profit / 4h"]
-];
-
-function fmt(n) {
-  if (typeof n !== "number") return n;
-  if (Number.isInteger(n)) return n.toLocaleString("fr-CA");
-  return n.toFixed(3);
-}
-
-function renderTable(tableId, rows, cols) {
-  const table = document.getElementById(tableId);
-  const thead = table.querySelector("thead");
-  const tbody = table.querySelector("tbody");
-  thead.innerHTML = "<tr>" + cols.map(c => `<th>${c[1]}</th>`).join("") + "</tr>";
-  tbody.innerHTML = rows.map(r => {
-    return "<tr" + (r.volatile ? ' class="vol"' : "") + ">" +
-      cols.map(c => {
-        let v = r[c[0]];
-        if (c[0] === "name" && r.volatile) v = v + " ⚠";
-        if (c[0] === "roi_pct") v = fmt(v) + "%";
-        if (c[0] === "fill_ratio") v = fmt(v);
-        else if (typeof v === "number") v = fmt(v);
-        return `<td>${v}</td>`;
-      }).join("") + "</tr>";
-  }).join("");
-}
-
-// Approximation: standard OSRS wilderness levels follow y = 3520 + (level-1)*8,
-// roughly valid for the mainland wilderness x-range (~2944 to 3392) and its
-// underground mirrors. This does not cover every special zone (e.g. some
-// deep-wildy bosses, wilderness resource areas at different x/y offsets) --
-// treat it as a strong heuristic, not a guarantee, and always glance at the
-// in-game wilderness level indicator too.
-function wildernessLevel(pos) {
-  if (!pos || typeof pos.y !== "number") return null;
-  if (pos.y < 3520 || pos.y > 3968) return null;
-  const inMainlandX = pos.x >= 2944 && pos.x <= 3392;
-  if (!inMainlandX) return null;
-  return Math.floor((pos.y - 3520) / 8) + 1;
-}
-
-function renderWildyBanner(pos) {
-  const el = document.getElementById("wildyBanner");
-  const level = wildernessLevel(pos);
-  if (level === null) {
-    el.style.display = "none";
-    return;
-  }
-  el.style.display = "block";
-  el.className = "wildy-banner " + (level >= 20 ? "wildy-high" : level >= 1 ? "wildy-low" : "wildy-safe");
-  el.textContent = `⚔ En Wilderness — niveau ${level} (x:${pos.x}, y:${pos.y})`;
-}
-
-const DIARY_TIERS = ["easy", "medium", "hard", "elite"];
-
-function renderDiaries(diariesData) {
-  const table = document.getElementById("diaries");
-  const thead = table.querySelector("thead");
-  const tbody = table.querySelector("tbody");
-  thead.innerHTML = "<tr><th>Région</th><th>Easy</th><th>Medium</th><th>Hard</th><th>Elite</th></tr>";
-  const diaries = diariesData.diaries || {};
-  tbody.innerHTML = Object.keys(diaries).sort().map(region => {
-    const cells = DIARY_TIERS.map(tier => {
-      const t = diaries[region][tier];
-      if (!t) return "<td>—</td>";
-      const v = t.complete ? "✓" : String(t.tasks_done || 0);
-      return `<td class="${t.complete ? 'ok' : ''}">${v}</td>`;
-    }).join("");
-    return `<tr><td>${region}</td>${cells}</tr>`;
-  }).join("");
-}
-
-function renderCA(caData) {
-  const table = document.getElementById("ca");
-  const thead = table.querySelector("thead");
-  const tbody = table.querySelector("tbody");
-  thead.innerHTML = "<tr><th>Palier</th><th>Complétées</th><th>Total</th></tr>";
-  const tiers = caData.tiers || {};
-  tbody.innerHTML = Object.keys(tiers).map(tierName => {
-    const t = tiers[tierName];
-    return `<tr><td>${tierName}</td><td>${t.tasks_completed}</td><td>${t.tasks_total}</td></tr>`;
-  }).join("");
-}
-
-const STATE_FR = {
-  BUYING: "Achat en cours", SELLING: "Vente en cours", BOUGHT: "Acheté — à collecter",
-  SOLD: "Vendu — à collecter", CANCELLED_BUY: "Achat annulé — à collecter",
-  CANCELLED_SELL: "Vente annulée — à collecter", EMPTY: "Vide"
-};
-
-// Compare your offer price with the market (5m avg, else 1h).
-function marketHint(slot, market) {
-  if (!market || slot.state === "EMPTY" || slot.complete || slot.cancelled) return "";
-  const low = market.low_5m || market.low_1h, high = market.high_5m || market.high_1h;
-  if (!low || !high) return '<span class="muted">pas de prix</span>';
-  const range = `<span class="muted">marché ${fmt(low)}–${fmt(high)}</span>`;
-  if (slot.type === "BUY") {
-    if (slot.price < low) return `<span class="bad">sous le marché, risque de ne pas remplir</span> · ${range}`;
-    if (slot.price <= low) return `<span class="warn">au prix bas, lent</span> · ${range}`;
-    if (slot.price > high) return `<span class="warn">tu paies plus que le haut</span> · ${range}`;
-    return `<span class="ok">dans la fourchette</span> · ${range}`;
-  } else {
-    if (slot.price > high) return `<span class="bad">au-dessus du marché, risque de ne pas vendre</span> · ${range}`;
-    if (slot.price >= high) return `<span class="warn">au prix haut, lent</span> · ${range}`;
-    if (slot.price < low) return `<span class="warn">tu vends sous le bas</span> · ${range}`;
-    return `<span class="ok">dans la fourchette</span> · ${range}`;
-  }
-}
-
-function renderGE(ge, market) {
-  const table = document.getElementById("geOffers");
-  table.querySelector("thead").innerHTML =
-    "<tr><th>Slot</th><th>Objet</th><th>Prix offre</th><th>Rempli</th><th>Prix moyen réel</th><th>État</th><th>Marché</th></tr>";
-  const rows = (ge.slots || []).map(s => {
-    if (s.state === "EMPTY") {
-      return `<tr><td>${s.slot}</td><td class="muted">— vide —</td><td></td><td></td><td></td><td class="muted">Libre</td><td></td></tr>`;
-    }
-    const ready = s.complete || s.cancelled;
-    const tag = ready ? '<span class="tag ready">' : (s.type === "BUY" ? '<span class="tag buy">' : '<span class="tag sell">');
-    const pct = Math.max(0, Math.min(100, s.progress_pct || 0));
-    const bar = `<span class="bar ${pct >= 100 ? 'done' : ''}"><span style="width:${pct}%"></span></span>`;
-    const label = s.type === "BUY" ? "Achat" : "Vente";
-    return `<tr>
-      <td>${s.slot}</td>
-      <td>${tag}${label}</span> ${s.item_name}</td>
-      <td>${fmt(s.price)}</td>
-      <td>${bar}${fmt(s.quantity_filled)} / ${fmt(s.quantity_total)}</td>
-      <td>${s.avg_price != null ? fmt(s.avg_price) : '<span class="muted">—</span>'}</td>
-      <td>${STATE_FR[s.state] || s.state}</td>
-      <td>${marketHint(s, market[String(s.item_id)])}</td>
-    </tr>`;
-  });
-  table.querySelector("tbody").innerHTML = rows.join("");
-  const age = (Date.now() - new Date(ge.exported_at).getTime()) / 60000;
-  document.getElementById("geAge").textContent =
-    `· mis à jour il y a ${age < 1 ? "moins d'1" : Math.round(age)} min`;
-}
-
-async function refresh() {
-  const metaEl = document.getElementById("meta");
-  const refreshEl = document.getElementById("refresh");
-  try {
-    const res = await fetch("market.json?_=" + Date.now());
-    const data = await res.json();
-
-    const genAge = (Date.now() - new Date(data.generated_at).getTime()) / 1000;
-    const staleTag = genAge > 600 ? ' <span class="stale">(scan vieux de ' + Math.round(genAge/60) + ' min — vérifie si le script tourne)</span>' : "";
-    metaEl.innerHTML = `Perso: <b>${data.character}</b> · Mode: <b>${data.mode}</b> · Généré: ${data.generated_at}${staleTag}`;
-
-    let posCardHtml = "";
-    try {
-      const posRes = await fetch("position.json?_=" + Date.now());
-      const pos = await posRes.json();
-      renderWildyBanner(pos);
-      posCardHtml = `<div class="card"><div class="label">Position</div><div class="value">${pos.x}, ${pos.y}</div></div>`;
-    } catch (e) {
-      document.getElementById("wildyBanner").style.display = "none";
-    }
-
-    let ge = null;
-    try {
-      const geRes = await fetch("ge_offers.json?_=" + Date.now());
-      if (geRes.ok) {
-        ge = await geRes.json();
-        renderGE(ge, data.ge_market || {});
-      }
-    } catch (e) { /* ge_offers.json not there yet (plugin not running) */ }
-
-    // Cash live : lu directement dans bank.json + inventory.json (pas besoin d'attendre le scan)
-    let cash = data.capital_gp;
-    let bankAgeMin = data.bank_age_min;
-    let cashSrc = "scan";
-    try {
-      const [bankRes, invRes] = await Promise.all([
-        fetch("bank.json?_=" + Date.now()),
-        fetch("inventory.json?_=" + Date.now()),
-      ]);
-      const coinsIn = c => ((c && c.items) || [])
-        .filter(it => it.id === 995).reduce((a, it) => a + it.quantity, 0);
-      const bank = bankRes.ok ? await bankRes.json() : null;
-      const inv = invRes.ok ? await invRes.json() : null;
-      if (bank) {
-        cash = coinsIn(bank) + coinsIn(inv);
-        bankAgeMin = (Date.now() - new Date(bank.exported_at).getTime()) / 60000;
-        cashSrc = "live";
-      }
-    } catch (e) { /* on garde la valeur du scan */ }
-    const freeSlots = ge ? (ge.slots || []).filter(s => s.state === "EMPTY").length : (data.free_slots ?? data.slots);
-    const budgetPerSlot = freeSlots > 0 ? Math.floor(cash / freeSlots) : 0;
-    const bankAgeTxt = bankAgeMin < 1 ? "à l'instant" : "il y a " + Math.round(bankAgeMin) + " min";
-    const bankWarn = bankAgeMin > 30
-      ? ' <span class="warn">⚠ banque ' + bankAgeTxt + ' — ouvre ta banque en jeu</span>'
-      : ' <span class="muted">(banque ' + bankAgeTxt + ')</span>';
-
-    document.getElementById("cards").innerHTML = `
-      <div class="card"><div class="label">Cash libre${cashSrc === "live" ? " · banque + inventaire" : ""}${bankWarn}</div><div class="value">${fmt(cash)} gp</div></div>
-      ${ge ? `<div class="card"><div class="label">Bloqué dans le GE</div><div class="value">${fmt(ge.gp_locked_in_buys)} gp</div></div>` : ""}
-      <div class="card"><div class="label">Slots libres</div><div class="value">${freeSlots} / ${data.slots}</div></div>
-      <div class="card"><div class="label">Budget / slot libre</div><div class="value">${fmt(budgetPerSlot)} gp</div></div>
-      <div class="card"><div class="label">Magic</div><div class="value">${data.magic_level}</div></div>
-      ${posCardHtml}
-    `;
-
-    renderTable("fastest", data.flips_fastest_fill || [], FLIP_COLS);
-    renderTable("yield", data.flips_best_gp_per_hour || [], FLIP_COLS);
-    renderTable("alch", data.alch || [], ALCH_COLS);
-
-    try {
-      const diariesRes = await fetch("diaries.json?_=" + Date.now());
-      renderDiaries(await diariesRes.json());
-    } catch (e) { /* diaries.json not there yet */ }
-
-    try {
-      const caRes = await fetch("combat_achievements.json?_=" + Date.now());
-      renderCA(await caRes.json());
-    } catch (e) { /* combat_achievements.json not there yet */ }
-
-    const tipEl = document.getElementById("wildyTip");
-    tipEl.style.display = "block";
-    tipEl.innerHTML = "💡 <b>Astuce:</b> ouvre ta banque en jeu de temps en temps pour que le cash affiché reste à jour. Les prix viennent de l'API du OSRS Wiki — vérifie toujours le prix en jeu avant d'acheter.";
-
-    refreshEl.textContent = "Dernière lecture: " + new Date().toLocaleTimeString("fr-CA");
-  } catch (e) {
-    refreshEl.textContent = "Erreur de lecture de market.json: " + e;
-  }
-}
-
-refresh();
-setInterval(refresh, 5000);
-</script>
-</body>
-</html>
-"""
 
 
-def write_dashboard(export_dir):
-    dashboard_path = export_dir / "dashboard.html"
-    with open(dashboard_path, "w", encoding="utf-8") as f:
-        f.write(DASHBOARD_HTML)
-    return dashboard_path
 
 
-def start_dashboard_server(export_dir, port):
-    class QuietHandler(http.server.SimpleHTTPRequestHandler):
-        def log_message(self, *args):   # pas de spam dans la console (le dashboard relit toutes les 5 s)
-            pass
-
-    handler = functools.partial(QuietHandler, directory=str(export_dir))
-    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", port), handler)
-    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
-    thread.start()
-    return httpd
 
 
 def run_loop(interval_sec):
@@ -863,43 +483,12 @@ def run_loop(interval_sec):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--loop",
-        type=int,
-        default=0,
-        metavar="SECONDS",
-        help="Re-run automatically every SECONDS (e.g. --loop 60 for every minute). "
-             "Omit this flag to just run once.",
-    )
-    parser.add_argument(
-        "--serve",
-        type=int,
-        default=0,
-        metavar="PORT",
-        help="Also serve a live-updating dashboard at http://localhost:PORT/dashboard.html "
-             "(reads market.json every 5s in your browser). Combine with --loop so the "
-             "data actually keeps refreshing.",
-    )
-    parser.add_argument(
-        "--char",
-        type=str,
-        default=None,
-        metavar="NAME",
-        help="Which exported character to scan (only needed if you have more than one "
-             "and don't want to be asked / want to switch).",
-    )
+    parser = argparse.ArgumentParser(description="GE flip/alch scanner (normally started by the toolkit app).")
+    parser.add_argument("--loop", type=int, default=0, metavar="SECONDS", help="re-scan every SECONDS")
+    parser.add_argument("--char", default=None, help="character name (default: most recently played)")
     args = parser.parse_args()
-
     setup_paths(args.char)
     print(f"Using character: {CHAR_NAME}  ({EXPORT_DIR})\n")
-
-    if args.serve > 0:
-        dash_path = write_dashboard(EXPORT_DIR)
-        start_dashboard_server(EXPORT_DIR, args.serve)
-        print(f"Dashboard live: http://localhost:{args.serve}/dashboard.html")
-        print(f"(serving {EXPORT_DIR})\n")
-
     if args.loop > 0:
         run_loop(args.loop)
     else:

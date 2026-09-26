@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSRS GE Toolkit</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+  :root {
+    --bg: #14171c; --panel: #1c2028; --panel2: #222734; --border: #2a2f3a;
+    --text: #e8eaed; --muted: #8a919e; --green: #4caf7d;
+    --red: #e0616b; --amber: #d9a441; --accent: #6ea8fe; --claude: #d97757;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+         margin: 0; padding: 0 20px 40px; font-size: 14px; }
+  a { color: var(--accent); }
+  header { display: flex; align-items: center; gap: 14px; padding: 16px 0 10px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  nav { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 18px; flex-wrap: wrap; }
+  nav button { background: none; border: 0; color: var(--muted); padding: 10px 14px; font-size: 14px; cursor: pointer;
+               border-bottom: 2px solid transparent; }
+  nav button.active { color: var(--text); border-bottom-color: var(--accent); }
+  .page { display: none; } .page.active { display: block; }
+  .banner { border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; display: flex; gap: 12px;
+            align-items: center; flex-wrap: wrap; }
+  .banner .grow { flex: 1; min-width: 240px; }
+  .b-info { background: rgba(110,168,254,.10); border: 1px solid var(--accent); }
+  .b-warn { background: rgba(217,164,65,.12); border: 1px solid var(--amber); }
+  .b-claude { background: rgba(217,119,87,.12); border: 1px solid var(--claude); }
+  .b-update { background: rgba(76,175,125,.12); border: 1px solid var(--green); }
+  .btn { background: var(--accent); color: #0b1220; border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 600;
+         cursor: pointer; font-size: 13px; text-decoration: none; display: inline-block; }
+  .btn.claude { background: var(--claude); color: #fff; } .btn.green { background: var(--green); color: #07140d; }
+  .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 22px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; min-width: 150px; }
+  .card .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .card .value { font-size: 20px; font-weight: 600; margin-top: 2px; }
+  .card .hint { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  h2 { font-size: 14px; color: var(--accent); margin: 24px 0 8px; }
+  h2 .muted { font-weight: 400; }
+  .muted { color: var(--muted); }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
+  tr:hover { background: rgba(255,255,255,.03); }
+  td.left, th.left { text-align: left; }
+  .vol { color: var(--amber); } .ok { color: var(--green); } .warn { color: var(--amber); } .bad { color: var(--red); }
+  .bar { background: var(--border); border-radius: 4px; height: 6px; width: 90px; display: inline-block; vertical-align: middle; margin-right: 6px; }
+  .bar > span { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
+  .bar.done > span { background: var(--green); }
+  .tag { font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+  .tag.buy { color: var(--accent); border-color: var(--accent); } .tag.sell { color: var(--amber); border-color: var(--amber); }
+  .tag.ready { color: var(--green); border-color: var(--green); }
+  .empty { color: var(--muted); padding: 14px 0; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .panel h3 { margin: 0 0 4px; font-size: 15px; }
+  .panel p.desc { color: var(--muted); margin: 0 0 12px; font-size: 13px; }
+  .field { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 7px 0;
+           border-top: 1px solid var(--border); }
+  .field:first-of-type { border-top: 0; }
+  .field label { flex: 1; } .field small { display: block; color: var(--muted); font-size: 12px; }
+  input[type=number], input[type=text], select, textarea {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+  input[type=number] { width: 110px; text-align: right; } textarea { width: 100%; min-height: 110px; font-family: inherit; }
+  .switch { position: relative; width: 38px; height: 22px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch span { position: absolute; inset: 0; background: var(--border); border-radius: 22px; cursor: pointer; transition: .15s; }
+  .switch span:before { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .15s; }
+  .switch input:checked + span { background: var(--green); } .switch input:checked + span:before { transform: translateX(16px); }
+  .savebar { position: sticky; bottom: 0; background: var(--bg); padding: 12px 0; display: flex; gap: 12px; align-items: center;
+             border-top: 1px solid var(--border); margin-top: 16px; }
+  .panel.wide { grid-column: 1 / -1; }
+  #watch input[type=number] { width: 120px; } #watch input[type=text] { width: 100%; min-width: 180px; }
+  .examples { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-top: 10px; }
+  .example { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; cursor: pointer; }
+  .example:hover { border-color: var(--claude); }
+  .example small { color: var(--muted); display: block; margin-top: 4px; }
+  .wildy { border-radius: 10px; padding: 10px 16px; margin-bottom: 14px; font-weight: 600; }
+  .wildy-low { background: rgba(217,164,65,.12); border: 1px solid var(--amber); color: var(--amber); }
+  .wildy-high { background: rgba(224,97,107,.15); border: 1px solid var(--red); color: var(--red); }
+  footer { color: var(--muted); font-size: 12px; margin-top: 30px; }
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--panel2); border: 1px solid var(--border);
+           border-radius: 8px; padding: 10px 14px; display: none; max-width: 380px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>OSRS GE Toolkit</h1>
+  <span class="sub" id="meta"></span>
+</header>
+<nav id="tabs">
+  <button data-tab="overview" class="active" data-i18n="tab_overview"></button>
+  <button data-tab="market" data-i18n="tab_market"></button>
+  <button data-tab="progress" data-i18n="tab_progress"></button>
+  <button data-tab="claude" data-i18n="tab_claude"></button>
+  <button data-tab="settings" data-i18n="tab_settings"></button>
+</nav>
+<div id="banners"></div>
+
+<!-- ============================================================ OVERVIEW -->
+<section class="page active" id="page-overview">
+  <div id="wildy"></div>
+  <div class="cards" id="cards"></div>
+  <h2><span data-i18n="ge_title"></span> <span class="muted" id="geAge"></span></h2>
+  <div class="scroll"><table id="geOffers"><thead></thead><tbody></tbody></table></div>
+  <div class="empty" id="geEmpty" style="display:none" data-i18n="ge_missing"></div>
+</section>
+
+<!-- ============================================================== MARKET -->
+<section class="page" id="page-market">
+  <p class="muted" id="marketMeta"></p>
+  <h2 data-i18n="alch_title"></h2>
+  <p class="muted" data-i18n="alch_desc"></p>
+  <div class="scroll"><table id="alch"><thead></thead><tbody></tbody></table></div>
+  <h2 data-i18n="yield_title"></h2>
+  <div class="scroll"><table id="yield"><thead></thead><tbody></tbody></table></div>
+  <h2 data-i18n="fast_title"></h2>
+  <div class="scroll"><table id="fastest"><thead></thead><tbody></tbody></table></div>
+</section>
+
+<!-- ============================================================ PROGRESS -->
+<section class="page" id="page-progress">
+  <div class="grid2">
+    <div><h2 data-i18n="quests_title"></h2><div id="quests"></div></div>
+    <div><h2 data-i18n="ca_title"></h2><table id="ca"><thead></thead><tbody></tbody></table></div>
+  </div>
+  <h2 data-i18n="diaries_title"></h2>
+  <div class="scroll"><table id="diaries"><thead></thead><tbody></tbody></table></div>
+</section>
+
+<!-- ============================================================== CLAUDE -->
+<section class="page" id="page-claude">
+  <div class="panel">
+    <h3 data-i18n="claude_h"></h3>
+    <p class="desc" data-i18n="claude_desc"></p>
+    <div id="claudeStatus"></div>
+    <h3 style="margin-top:18px" data-i18n="claude_try"></h3>
+    <p class="desc" data-i18n="claude_try_desc"></p>
+    <div class="examples" id="examples"></div>
+    <p class="muted" style="margin-top:16px" data-i18n="claude_privacy"></p>
+  </div>
+</section>
+
+<!-- ============================================================ SETTINGS -->
+<section class="page" id="page-settings">
+  <div class="grid2" id="settingsForm"></div>
+  <div class="savebar">
+    <button class="btn green" id="saveBtn" data-i18n="save"></button>
+    <span class="muted" id="saveMsg"></span>
+  </div>
+</section>
+
+<footer id="footer"></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+// ------------------------------------------------------------------ i18n
+const I18N = {
+  en: {
+    tab_overview: "Overview", tab_market: "Market", tab_progress: "Progress", tab_claude: "Claude", tab_settings: "Settings",
+    loading: "Loading…", char: "Character", mode: "Mode", members: "members", f2p: "free-to-play", scanned: "Scanned",
+    cash: "Free cash", cash_hint: "bank + inventory", locked: "Locked in GE offers", slots: "Free GE slots",
+    budget: "Budget / free slot", magic: "Magic", position: "Position", bank_age: "bank {age}",
+    ge_title: "My GE offers", ge_missing: "No GE data yet: install the \"Position Exporter\" plugin from the RuneLite Plugin Hub.",
+    updated: "updated {age}", slot: "Slot", item: "Item", offer: "Offer price", filled: "Filled", avg_real: "Avg paid/received",
+    state: "State", market: "Market", empty_slot: "— empty —", free: "Free", buy: "Buy", sell: "Sell",
+    st_BUYING: "Buying", st_SELLING: "Selling", st_BOUGHT: "Bought — collect", st_SOLD: "Sold — collect",
+    st_CANCELLED_BUY: "Buy cancelled — collect", st_CANCELLED_SELL: "Sale cancelled — collect",
+    m_noprice: "no price", m_range: "market {lo}–{hi}", m_buy_low: "below market, may not fill", m_buy_slow: "at the low end, slow",
+    m_buy_high: "paying above the high", m_in: "in range", m_sell_high: "above market, may not sell",
+    m_sell_slow: "at the high end, slow", m_sell_low: "selling below the low",
+    alch_title: "Best High Alchemy", alch_desc: "Buy under \"Max buy\", cast High Level Alchemy (~1,200 casts/hour). Needs 55 Magic.",
+    yield_title: "Best flips (gp/hour)", fast_title: "Fastest flips to fill",
+    c_buy: "Buy", c_sell: "Sell", c_roi: "ROI", c_qty: "Qty", c_gph: "gp/h", c_capital: "Capital", c_fill: "Fill",
+    c_max: "Max buy", c_alch: "Alch value", c_ppc: "Profit/cast", c_gph_alch: "gp/h (alching)", c_cap1h: "Capital for 1h",
+    c_qty4: "Qty / 4h", c_p4: "Profit / 4h", market_meta: "Scanned {age} · prices from the OSRS Wiki · margins after 2% GE tax · ⚠ = price moving fast, check in game",
+    no_scan: "No scan yet — it runs every few minutes once your bank has been exported.",
+    quests_title: "Quests in progress", quests_done: "{done} finished · {prog} in progress · {todo} not started",
+    no_quests: "No quest in progress.", ca_title: "Combat achievements", diaries_title: "Achievement diaries",
+    tier: "Tier", done: "Done", total: "Total", region: "Region",
+    wildy: "⚔ In the Wilderness — level {lvl}",
+    b_no_data: "<b>One-time setup:</b> in RuneLite, open the wrench icon → <b>Plugin Hub</b>, install <b>Character Export</b> and <b>Position Exporter</b>, then log in and open your bank once. This page updates by itself.",
+    b_no_pe: "Install <b>Position Exporter</b> from the RuneLite Plugin Hub to see your GE offers and position live.",
+    b_bank_old: "Your bank was last exported {age}. Open your bank in game to refresh your cash.",
+    b_claude: "<b>Ask Claude about your account.</b> \"How's my GE doing?\", \"Where am I, what's the next quest step?\", \"Plan my way to a bond\".",
+    b_claude_restart: "Connected to Claude ✓ — restart the Claude app if you just connected.",
+    b_update: "<b>Update available: {v}</b> (you have {cur}).", download: "Download", connect_claude: "Connect to Claude", learn: "How it works",
+    claude_h: "Use your account with Claude", claude_desc: "Connect once, then just ask Claude (desktop app) about your character, bank, GE offers, the market, quests… Claude reads your data through this toolkit; it never plays for you.",
+    claude_on: "✓ Connected to the Claude desktop app.", claude_off: "Not connected yet.",
+    claude_restart: "Restart the Claude desktop app (quit it from its tray icon, then reopen it) to load the connection.",
+    claude_disconnect: "Disconnect", claude_get: "Don't have Claude yet?", claude_get_link: "Get the Claude desktop app",
+    claude_try: "Things to ask", claude_try_desc: "Click one to copy it, then paste it in Claude.",
+    claude_privacy: "Privacy: the toolkit sends nothing anywhere. When you ask Claude a question, the data it reads to answer (e.g. your bank) is sent to Claude.",
+    copied: "Copied — paste it in Claude.",
+    s_general: "General", s_general_d: "Language, character and app behaviour.",
+    s_lang: "Language", s_char: "Character", s_char_auto: "Most recently played", s_scan: "Scan every (minutes)",
+    s_open: "Open this dashboard when the app starts", s_autostart: "Start with Windows", s_updates: "Check for updates",
+    s_ge: "GE offer alerts", s_ge_d: "Pop-ups when your offers fill, or look stuck.",
+    s_on: "Enabled", s_miles: "Notify at (% filled)", s_miles_s: "comma-separated, completion is always notified",
+    s_stuck_pct: "\"Stuck\" if price is off the market by (%)", s_stuck_min: "…for at least (minutes)",
+    s_flip: "Flip alerts", s_flip_d: "Real flips after tax, filtered for liquidity.",
+    s_flip_min: "Min profit per 4h (gp)", s_flip_roi: "Min ROI (%)", s_flip_cap: "Max capital per flip (gp)",
+    s_flip_max: "Max alerts per scan", s_flip_cd: "Don't repeat the same item for (hours)",
+    s_moves: "Price crashes & spikes", s_moves_d: "Heavily traded items moving fast vs their 24h average.",
+    s_moves_pct: "Min move (%)", s_bond: "Bond price", s_bond_d: "Alert when a bond gets cheap.",
+    s_bond_pct: "Alert when below its 7-day average by (%)", s_bond_fixed: "…or below this price (gp, 0 = off)",
+    s_news: "Official news", s_news_d: "New posts on the OSRS news page.", s_news_kw: "Mark as important if it mentions",
+    s_stock: "Cheap skilling materials", s_stock_d: "Items in their cheapest 20% of the last 90 days.",
+    s_stock_disc: "Min discount vs 90-day median (%)", s_stock_items: "Items to watch (one per line)",
+    s_watch: "Price targets", s_watch_d: "Your own alerts for specific items.",
+    s_w_item: "Item", s_w_cost: "Your cost", s_w_sell: "Alert if sells ≥", s_w_buy: "Alert if buyable ≤", s_w_add: "+ Add item",
+    save: "Save settings", saved: "Saved ✓ — alerts use the new settings within a minute.", save_err: "Could not save: {e}",
+    footer: "OSRS GE Toolkit {v} · prices: OSRS Wiki · not affiliated with Jagex or RuneLite · refreshed {t}",
+    ex1: "How are my GE offers doing? Should I change any price?", ex1s: "checks your 8 slots against the live market",
+    ex2: "Where am I, and what's the next step of my current quest?", ex2s: "uses your live position + quests",
+    ex3: "Make me a plan to afford a bond as fast as possible.", ex3s: "bank value + market + your stats",
+    ex4: "What's the best thing to High Alch with my cash right now?", ex4s: "live alch profits sized to your cash",
+    ex5: "What should I do this session to progress my account?", ex5s: "stats, quests, diaries",
+    ex6: "What happened on the GE while I was away?", ex6s: "your recent alerts",
+    just_now: "just now", min_ago: "{n} min ago", h_ago: "{n} h ago",
+  },
+  fr: {
+    tab_overview: "Aperçu", tab_market: "Marché", tab_progress: "Progression", tab_claude: "Claude", tab_settings: "Paramètres",
+    loading: "Chargement…", char: "Perso", mode: "Mode", members: "membre", f2p: "gratuit", scanned: "Scan",
+    cash: "Cash libre", cash_hint: "banque + inventaire", locked: "Bloqué dans le GE", slots: "Slots GE libres",
+    budget: "Budget / slot libre", magic: "Magic", position: "Position", bank_age: "banque {age}",
+    ge_title: "Mes offres GE", ge_missing: "Pas encore de données GE : installe le plugin « Position Exporter » depuis le Plugin Hub de RuneLite.",
+    updated: "mis à jour {age}", slot: "Slot", item: "Objet", offer: "Prix offre", filled: "Rempli", avg_real: "Prix moyen réel",
+    state: "État", market: "Marché", empty_slot: "— vide —", free: "Libre", buy: "Achat", sell: "Vente",
+    st_BUYING: "Achat en cours", st_SELLING: "Vente en cours", st_BOUGHT: "Acheté — à collecter", st_SOLD: "Vendu — à collecter",
+    st_CANCELLED_BUY: "Achat annulé — à collecter", st_CANCELLED_SELL: "Vente annulée — à collecter",
+    m_noprice: "pas de prix", m_range: "marché {lo}–{hi}", m_buy_low: "sous le marché, risque de ne pas remplir", m_buy_slow: "au prix bas, lent",
+    m_buy_high: "tu paies plus que le haut", m_in: "dans la fourchette", m_sell_high: "au-dessus du marché, risque de ne pas vendre",
+    m_sell_slow: "au prix haut, lent", m_sell_low: "tu vends sous le bas",
+    alch_title: "Meilleur High Alch", alch_desc: "Achète sous « Achat max », lance High Level Alchemy (~1 200 sorts/heure). Demande 55 en Magic.",
+    yield_title: "Meilleurs flips (gp/heure)", fast_title: "Flips les plus rapides à remplir",
+    c_buy: "Achat", c_sell: "Vente", c_roi: "ROI", c_qty: "Qté", c_gph: "gp/h", c_capital: "Capital", c_fill: "Remplissage",
+    c_max: "Achat max", c_alch: "Valeur alch", c_ppc: "Profit/sort", c_gph_alch: "gp/h (alch)", c_cap1h: "Capital pour 1 h",
+    c_qty4: "Qté / 4 h", c_p4: "Profit / 4 h", market_meta: "Scan {age} · prix du OSRS Wiki · marges après la taxe GE de 2 % · ⚠ = prix qui bouge vite, vérifie en jeu",
+    no_scan: "Pas encore de scan — il tourne toutes les quelques minutes dès que ta banque a été exportée.",
+    quests_title: "Quêtes en cours", quests_done: "{done} terminées · {prog} en cours · {todo} pas commencées",
+    no_quests: "Aucune quête en cours.", ca_title: "Combat achievements", diaries_title: "Achievement diaries",
+    tier: "Palier", done: "Faites", total: "Total", region: "Région",
+    wildy: "⚔ En Wilderness — niveau {lvl}",
+    b_no_data: "<b>Installation (une seule fois) :</b> dans RuneLite, clé à molette → <b>Plugin Hub</b>, installe <b>Character Export</b> et <b>Position Exporter</b>, puis connecte-toi et ouvre ta banque une fois. Cette page se met à jour toute seule.",
+    b_no_pe: "Installe <b>Position Exporter</b> depuis le Plugin Hub de RuneLite pour voir tes offres GE et ta position en direct.",
+    b_bank_old: "Dernier export de ta banque : {age}. Ouvre ta banque en jeu pour rafraîchir ton cash.",
+    b_claude: "<b>Pose des questions à Claude sur ton compte.</b> « Comment va mon GE ? », « Où suis-je, quelle est la prochaine étape de ma quête ? », « Plan pour un bond ».",
+    b_claude_restart: "Connecté à Claude ✓ — redémarre l'application Claude si tu viens de te connecter.",
+    b_update: "<b>Mise à jour disponible : {v}</b> (tu as la {cur}).", download: "Télécharger", connect_claude: "Connecter à Claude", learn: "Comment ça marche",
+    claude_h: "Utilise ton compte avec Claude", claude_desc: "Connecte-toi une fois, puis pose tes questions à Claude (application de bureau) sur ton perso, ta banque, tes offres GE, le marché, les quêtes… Claude lit tes données via cet outil ; il ne joue jamais à ta place.",
+    claude_on: "✓ Connecté à l'application Claude.", claude_off: "Pas encore connecté.",
+    claude_restart: "Redémarre l'application Claude (quitte-la depuis son icône près de l'horloge, puis rouvre-la) pour charger la connexion.",
+    claude_disconnect: "Déconnecter", claude_get: "Pas encore Claude ?", claude_get_link: "Télécharger l'application Claude",
+    claude_try: "Idées de questions", claude_try_desc: "Clique pour copier, puis colle dans Claude.",
+    claude_privacy: "Confidentialité : l'outil n'envoie rien nulle part. Quand tu poses une question à Claude, les données qu'il lit pour répondre (ex. ta banque) lui sont envoyées.",
+    copied: "Copié — colle-le dans Claude.",
+    s_general: "Général", s_general_d: "Langue, personnage et comportement de l'application.",
+    s_lang: "Langue", s_char: "Personnage", s_char_auto: "Le dernier joué", s_scan: "Scanner toutes les (minutes)",
+    s_open: "Ouvrir ce dashboard au démarrage", s_autostart: "Démarrer avec Windows", s_updates: "Vérifier les mises à jour",
+    s_ge: "Alertes d'offres GE", s_ge_d: "Pop-ups quand tes offres se remplissent ou semblent bloquées.",
+    s_on: "Activé", s_miles: "Prévenir à (% rempli)", s_miles_s: "séparés par des virgules, la fin est toujours signalée",
+    s_stuck_pct: "« Bloquée » si le prix s'écarte du marché de (%)", s_stuck_min: "…pendant au moins (minutes)",
+    s_flip: "Alertes de flips", s_flip_d: "Vrais flips après taxe, filtrés selon la liquidité.",
+    s_flip_min: "Profit min. par 4 h (gp)", s_flip_roi: "ROI min. (%)", s_flip_cap: "Capital max. par flip (gp)",
+    s_flip_max: "Alertes max. par scan", s_flip_cd: "Ne pas répéter le même objet pendant (heures)",
+    s_moves: "Crashs et pics de prix", s_moves_d: "Objets très échangés qui bougent vite vs leur moyenne 24 h.",
+    s_moves_pct: "Mouvement min. (%)", s_bond: "Prix du bond", s_bond_d: "Alerte quand un bond devient bon marché.",
+    s_bond_pct: "Alerte sous sa moyenne 7 jours de (%)", s_bond_fixed: "…ou sous ce prix (gp, 0 = désactivé)",
+    s_news: "News officielles", s_news_d: "Nouveaux posts sur la page de news OSRS.", s_news_kw: "Important s'il mentionne",
+    s_stock: "Matériaux de skilling pas chers", s_stock_d: "Objets dans leurs 20 % les moins chers des 90 derniers jours.",
+    s_stock_disc: "Rabais min. vs médiane 90 j (%)", s_stock_items: "Objets à surveiller (un par ligne)",
+    s_watch: "Seuils de prix", s_watch_d: "Tes propres alertes sur des objets précis.",
+    s_w_item: "Objet", s_w_cost: "Ton coût", s_w_sell: "Alerte si vend ≥", s_w_buy: "Alerte si achetable ≤", s_w_add: "+ Ajouter",
+    save: "Enregistrer", saved: "Enregistré ✓ — les alertes utilisent les nouveaux réglages d'ici une minute.", save_err: "Impossible d'enregistrer : {e}",
+    footer: "OSRS GE Toolkit {v} · prix : OSRS Wiki · non affilié à Jagex ni à RuneLite · rafraîchi {t}",
+    ex1: "Comment vont mes offres GE ? Je devrais changer un prix ?", ex1s: "compare tes 8 slots au marché en direct",
+    ex2: "Où suis-je, et quelle est la prochaine étape de ma quête ?", ex2s: "utilise ta position + tes quêtes",
+    ex3: "Fais-moi un plan pour me payer un bond le plus vite possible.", ex3s: "valeur de banque + marché + tes stats",
+    ex4: "Quel est le meilleur objet à High Alch avec mon cash maintenant ?", ex4s: "profits d'alch en direct selon ton cash",
+    ex5: "Qu'est-ce que je devrais faire cette session pour progresser ?", ex5s: "stats, quêtes, diaries",
+    ex6: "Qu'est-ce qui s'est passé au GE pendant mon absence ?", ex6s: "tes alertes récentes",
+    just_now: "à l'instant", min_ago: "il y a {n} min", h_ago: "il y a {n} h",
+  }
+};
+let LANG = "en", STATE = null, SETTINGS = null, dirty = false;
+const T = (k, v = {}) => (I18N[LANG][k] ?? I18N.en[k] ?? k).replace(/\{(\w+)\}/g, (_, x) => v[x] ?? "");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+function applyI18n() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll("[data-i18n]").forEach(el => el.innerHTML = T(el.dataset.i18n));
+}
+function fmt(n) {
+  if (typeof n !== "number") return n ?? "";
+  return Number.isInteger(n) ? n.toLocaleString(LANG === "fr" ? "fr-CA" : "en-US") : n.toFixed(2);
+}
+function gp(n) {
+  if (typeof n !== "number") return "—";
+  const a = Math.abs(n);
+  if (a >= 1e6) return (n / 1e6).toFixed(2) + "M";
+  if (a >= 1e4) return (n / 1e3).toFixed(1) + "k";
+  return fmt(n);
+}
+function ago(minutes) {
+  if (minutes == null) return "—";
+  if (minutes < 1) return T("just_now");
+  if (minutes < 90) return T("min_ago", {n: Math.round(minutes)});
+  return T("h_ago", {n: (minutes / 60).toFixed(1)});
+}
+const ageOf = iso => iso ? (Date.now() - new Date(iso).getTime()) / 60000 : null;
+async function getJSON(url) { const r = await fetch(url, {cache: "no-store"}); if (!r.ok) throw new Error(r.status); return r.json(); }
+async function tryJSON(url) { try { return await getJSON(url); } catch (e) { return null; } }
+async function post(url, body) {
+  const r = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json", "X-Toolkit": "1"}, body: JSON.stringify(body)});
+  return r.json();
+}
+function toast(msg) { const el = document.getElementById("toast"); el.textContent = msg; el.style.display = "block"; clearTimeout(el._t); el._t = setTimeout(() => el.style.display = "none", 3500); }
+
+// ------------------------------------------------------------------ tabs
+function showTab(name) {
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + name));
+  if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
+  if (name === "settings") loadSettings();
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+// ------------------------------------------------------------- renderers
+function renderTable(id, rows, cols) {
+  const t = document.getElementById(id);
+  t.querySelector("thead").innerHTML = "<tr>" + cols.map(c => `<th class="${c[2] || ""}">${T(c[1])}</th>`).join("") + "</tr>";
+  if (!rows || !rows.length) { t.querySelector("tbody").innerHTML = `<tr><td class="muted left" colspan="${cols.length}">${T("no_scan")}</td></tr>`; return; }
+  t.querySelector("tbody").innerHTML = rows.map(r => "<tr>" + cols.map(c => {
+    let v = r[c[0]];
+    if (c[0] === "name") v = esc(v) + (r.volatile ? ' <span class="vol">⚠</span>' : "");
+    else if (c[0] === "roi_pct") v = fmt(v) + "%";
+    else if (c[0] === "fill_ratio") v = Math.round((v || 0) * 100) + "%";
+    else v = fmt(v);
+    return `<td class="${c[2] || ""}">${v}</td>`;
+  }).join("") + "</tr>").join("");
+}
+const FLIP_COLS = [["name", "item"], ["buy_at", "c_buy"], ["sell_at", "c_sell"], ["roi_pct", "c_roi"], ["qty_per_cycle", "c_qty"],
+                   ["gp_per_hour", "c_gph"], ["capital_needed", "c_capital"], ["fill_ratio", "c_fill"]];
+const ALCH_COLS = [["name", "item"], ["buy_at", "c_buy"], ["max_buy_price", "c_max"], ["alch_value", "c_alch"], ["profit_per_cast", "c_ppc"],
+                   ["gp_per_hour", "c_gph_alch"], ["capital_1h", "c_cap1h"], ["qty_per_cycle", "c_qty4"], ["profit_per_cycle", "c_p4"]];
+
+function marketHint(s, m) {
+  if (!m || s.complete || s.cancelled) return "";
+  const lo = m.low_5m || m.low_1h, hi = m.high_5m || m.high_1h;
+  if (!lo || !hi) return `<span class="muted">${T("m_noprice")}</span>`;
+  const range = `<span class="muted">${T("m_range", {lo: fmt(lo), hi: fmt(hi)})}</span>`;
+  let h;
+  if (s.type === "BUY") h = s.price < lo ? ["bad", "m_buy_low"] : s.price <= lo ? ["warn", "m_buy_slow"] : s.price > hi ? ["warn", "m_buy_high"] : ["ok", "m_in"];
+  else h = s.price > hi ? ["bad", "m_sell_high"] : s.price >= hi ? ["warn", "m_sell_slow"] : s.price < lo ? ["warn", "m_sell_low"] : ["ok", "m_in"];
+  return `<span class="${h[0]}">${T(h[1])}</span> · ${range}`;
+}
+function renderGE(ge, market) {
+  const t = document.getElementById("geOffers");
+  document.getElementById("geEmpty").style.display = ge ? "none" : "block";
+  t.style.display = ge ? "" : "none";
+  if (!ge) { document.getElementById("geAge").textContent = ""; return; }
+  t.querySelector("thead").innerHTML = `<tr><th>${T("slot")}</th><th class="left">${T("item")}</th><th>${T("offer")}</th><th>${T("filled")}</th><th>${T("avg_real")}</th><th>${T("state")}</th><th class="left">${T("market")}</th></tr>`;
+  t.querySelector("tbody").innerHTML = (ge.slots || []).map(s => {
+    if (s.state === "EMPTY") return `<tr><td>${s.slot}</td><td class="left muted">${T("empty_slot")}</td><td></td><td></td><td></td><td class="muted">${T("free")}</td><td></td></tr>`;
+    const ready = s.complete || s.cancelled, pct = Math.max(0, Math.min(100, s.progress_pct || 0));
+    const tag = `<span class="tag ${ready ? "ready" : s.type === "BUY" ? "buy" : "sell"}">${T(s.type === "BUY" ? "buy" : "sell")}</span>`;
+    return `<tr><td>${s.slot}</td><td class="left">${tag} ${esc(s.item_name)}</td><td>${fmt(s.price)}</td>
+      <td><span class="bar ${pct >= 100 ? "done" : ""}"><span style="width:${pct}%"></span></span>${fmt(s.quantity_filled)} / ${fmt(s.quantity_total)}</td>
+      <td>${s.avg_price != null ? fmt(s.avg_price) : "—"}</td><td>${T("st_" + s.state)}</td>
+      <td class="left">${marketHint(s, (market || {})[String(s.item_id)])}</td></tr>`;
+  }).join("");
+  document.getElementById("geAge").textContent = "· " + T("updated", {age: ago(ageOf(ge.exported_at))});
+}
+function wildernessLevel(p) {
+  if (!p || typeof p.y !== "number" || p.x < 2944 || p.x > 3392) return null;
+  if (p.y >= 3520 && p.y <= 3968) return Math.floor((p.y - 3520) / 8) + 1;
+  if (p.y >= 9920 && p.y <= 10368) return Math.floor((p.y - 9920) / 8) + 1;
+  return null;
+}
+function renderProgress(q, d, ca) {
+  const qs = (q && q.quests) || [];
+  const prog = qs.filter(x => x.state === "IN_PROGRESS"), done = qs.filter(x => x.state === "FINISHED").length;
+  document.getElementById("quests").innerHTML = q ?
+    `<p class="muted">${T("quests_done", {done, prog: prog.length, todo: qs.length - done - prog.length})}</p>` +
+    (prog.length ? "<ul>" + prog.map(x => `<li><a target="_blank" href="https://oldschool.runescape.wiki/w/${encodeURIComponent(x.name.replace(/ /g, "_"))}/Quick_guide">${esc(x.name)}</a></li>`).join("") + "</ul>" : `<p class="muted">${T("no_quests")}</p>`)
+    : `<p class="muted">—</p>`;
+  const dt = document.getElementById("diaries"), tiers = ["easy", "medium", "hard", "elite"], di = (d && d.diaries) || {};
+  dt.querySelector("thead").innerHTML = `<tr><th>${T("region")}</th>` + tiers.map(x => `<th>${x}</th>`).join("") + "</tr>";
+  dt.querySelector("tbody").innerHTML = Object.keys(di).sort().map(r => `<tr><td>${esc(r)}</td>` + tiers.map(x => {
+    const v = di[r][x]; return v ? `<td class="${v.complete ? "ok" : ""}">${v.complete ? "✓" : (v.tasks_done || 0)}</td>` : "<td>—</td>";
+  }).join("") + "</tr>").join("");
+  const ct = document.getElementById("ca"), ti = (ca && ca.tiers) || {};
+  ct.querySelector("thead").innerHTML = `<tr><th>${T("tier")}</th><th>${T("done")}</th><th>${T("total")}</th></tr>`;
+  ct.querySelector("tbody").innerHTML = Object.keys(ti).map(k => `<tr><td>${esc(k)}</td><td class="${ti[k].complete ? "ok" : ""}">${ti[k].tasks_completed}</td><td>${ti[k].tasks_total}</td></tr>`).join("");
+}
+function coins(c) { return ((c && c.items) || []).filter(i => i.id === 995).reduce((a, i) => a + i.quantity, 0); }
+
+function renderBanners(st) {
+  const b = [];
+  if (st.update && st.update.update_available)
+    b.push(`<div class="banner b-update"><div class="grow">${T("b_update", {v: esc(st.update.latest), cur: esc(st.update.current)})}</div>
+      <a class="btn green" target="_blank" href="${esc(st.update.download || st.update.url)}">${T("download")}</a></div>`);
+  if (st.problems.includes("no_data")) b.push(`<div class="banner b-warn"><div class="grow">${T("b_no_data")}</div></div>`);
+  else if (st.problems.includes("no_position_exporter")) b.push(`<div class="banner b-info"><div class="grow">${T("b_no_pe")}</div></div>`);
+  if (st.problems.includes("bank_old")) b.push(`<div class="banner b-info"><div class="grow">${T("b_bank_old", {age: ago(st.file_ages_min["bank.json"])})}</div></div>`);
+  if (!st.claude.connected)
+    b.push(`<div class="banner b-claude"><div class="grow">${T("b_claude")}</div>
+      <button class="btn claude" onclick="connectClaude()">${T("connect_claude")}</button>
+      <button class="btn ghost" onclick="showTab('claude')">${T("learn")}</button></div>`);
+  document.getElementById("banners").innerHTML = b.join("");
+}
+function renderClaude(st) {
+  const c = st.claude || {};
+  document.getElementById("claudeStatus").innerHTML = c.connected
+    ? `<p class="ok"><b>${T("claude_on")}</b></p><p class="muted">${T("claude_restart")}</p>
+       <button class="btn ghost" onclick="disconnectClaude()">${T("claude_disconnect")}</button>`
+    : `<p class="warn">${T("claude_off")}</p><button class="btn claude" onclick="connectClaude()">${T("connect_claude")}</button>
+       <p class="muted" style="margin-top:10px">${T("claude_get")} <a href="https://claude.ai/download" target="_blank">${T("claude_get_link")}</a></p>`;
+  document.getElementById("examples").innerHTML = [1, 2, 3, 4, 5, 6].map(i =>
+    `<div class="example" data-q="${esc(T("ex" + i))}">${esc(T("ex" + i))}<small>${esc(T("ex" + i + "s"))}</small></div>`).join("");
+  document.querySelectorAll(".example").forEach(el => el.onclick = async () => {
+    try { await navigator.clipboard.writeText(el.dataset.q); } catch (e) {}
+    toast(T("copied"));
+  });
+}
+async function connectClaude() {
+  const r = await post("/api/claude", {action: "connect"});
+  toast(r.ok ? T("b_claude_restart") : ("⚠ " + JSON.stringify(r.results || r.error)));
+  refresh();
+}
+async function disconnectClaude() { await post("/api/claude", {action: "disconnect"}); refresh(); }
+
+// ------------------------------------------------------------- main loop
+async function refresh() {
+  const st = await tryJSON("/api/state");
+  if (!st) return;
+  if (st.language !== LANG) { LANG = st.language; applyI18n(); }
+  STATE = st;
+  renderBanners(st);
+  renderClaude(st);
+  const [m, pos, ge, bank, inv, q, d, ca] = await Promise.all(
+    ["market.json", "position.json", "ge_offers.json", "bank.json", "inventory.json", "quests.json", "diaries.json", "combat_achievements.json"]
+      .map(f => tryJSON("/data/" + f)));
+  document.getElementById("meta").innerHTML = st.character
+    ? `${T("char")}: <b>${esc(st.character)}</b>` + (m ? ` · ${T("mode")}: <b>${T(m.mode === "members" ? "members" : "f2p")}</b>` : "")
+    : "";
+  const cash = bank ? coins(bank) + coins(inv) : (m ? m.capital_gp : null);
+  const freeSlots = ge ? (ge.slots || []).filter(s => s.state === "EMPTY").length : (m ? m.free_slots : null);
+  const lvl = wildernessLevel(pos);
+  document.getElementById("wildy").innerHTML = lvl ? `<div class="wildy ${lvl >= 20 ? "wildy-high" : "wildy-low"}">${T("wildy", {lvl})}</div>` : "";
+  document.getElementById("cards").innerHTML = st.character ? `
+    <div class="card"><div class="label">${T("cash")}</div><div class="value">${gp(cash)}</div><div class="hint">${T("cash_hint")} · ${T("bank_age", {age: ago(st.file_ages_min["bank.json"])})}</div></div>
+    ${ge ? `<div class="card"><div class="label">${T("locked")}</div><div class="value">${gp(ge.gp_locked_in_buys)}</div></div>` : ""}
+    <div class="card"><div class="label">${T("slots")}</div><div class="value">${freeSlots ?? "—"} / ${m ? m.slots : 8}</div></div>
+    <div class="card"><div class="label">${T("budget")}</div><div class="value">${freeSlots ? gp(Math.floor(cash / freeSlots)) : "—"}</div></div>
+    ${m ? `<div class="card"><div class="label">${T("magic")}</div><div class="value">${m.magic_level}</div></div>` : ""}
+    ${pos ? `<div class="card"><div class="label">${T("position")}</div><div class="value">${pos.x}, ${pos.y}</div><div class="hint">W${pos.world} · ${ago(ageOf(pos.exported_at))}</div></div>` : ""}` : "";
+  renderGE(ge, m && m.ge_market);
+  document.getElementById("marketMeta").textContent = m ? T("market_meta", {age: ago(ageOf(m.generated_at))}) : T("no_scan");
+  renderTable("alch", m && m.alch, ALCH_COLS);
+  renderTable("yield", m && m.flips_best_gp_per_hour, FLIP_COLS);
+  renderTable("fastest", m && m.flips_fastest_fill, FLIP_COLS);
+  renderProgress(q, d, ca);
+  document.getElementById("footer").textContent = T("footer", {v: st.version, t: new Date().toLocaleTimeString(LANG === "fr" ? "fr-CA" : "en-US")});
+}
+
+// -------------------------------------------------------------- settings
+const sw = (id, on) => `<span class="switch"><input type="checkbox" id="${id}" ${on ? "checked" : ""}><span onclick="this.previousElementSibling.click()"></span></span>`;
+const num = (id, v, step = 1) => `<input type="number" id="${id}" value="${v}" step="${step}" min="0">`;
+const row = (label, control, small = "") => `<div class="field"><label>${T(label)}${small ? `<small>${T(small)}</small>` : ""}</label>${control}</div>`;
+function panel(title, desc, body, cls = "") { return `<div class="panel ${cls}"><h3>${T(title)}</h3><p class="desc">${T(desc)}</p>${body}</div>`; }
+function watchRow(name = "", w = {}) {
+  return `<tr><td class="left"><input type="text" class="w-name" value="${esc(name)}" placeholder="Old school bond"></td>
+    <td>${num("", w.cost || "").replace('id=""', 'class="w-cost"')}</td><td>${num("", w.sell_alert_at || "").replace('id=""', 'class="w-sell"')}</td>
+    <td>${num("", w.buy_alert_at || "").replace('id=""', 'class="w-buy"')}</td><td><button class="btn ghost" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
+}
+async function loadSettings() {
+  if (dirty) return;
+  const r = await tryJSON("/api/settings");
+  if (!r) return;
+  SETTINGS = r;
+  const s = r.settings, a = r.alerts, chars = (STATE && STATE.characters) || [];
+  const g = a.ge_offers, f = a.flips, mv = a.moves, n = a.news, sp = a.stockpile;
+  document.getElementById("settingsForm").innerHTML =
+    panel("s_general", "s_general_d",
+      row("s_lang", `<select id="language"><option value="en" ${s.language === "en" ? "selected" : ""}>English</option><option value="fr" ${s.language === "fr" ? "selected" : ""}>Français</option></select>`) +
+      row("s_char", `<select id="character"><option value="">${T("s_char_auto")}</option>${chars.map(c => `<option ${s.character === c ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>`) +
+      row("s_scan", num("scan_min", Math.round(s.scan_interval_sec / 60))) +
+      row("s_open", sw("open_dashboard_on_start", s.open_dashboard_on_start)) +
+      row("s_autostart", sw("autostart", r.autostart)) +
+      row("s_updates", sw("check_updates", s.check_updates))) +
+    panel("s_ge", "s_ge_d",
+      row("s_on", sw("ge_enabled", g.enabled)) +
+      row("s_miles", `<input type="text" id="ge_miles" value="${(g.partial_milestones_pct || []).join(", ")}" style="width:110px">`, "s_miles_s") +
+      row("s_stuck_pct", num("ge_stuck_pct", g.unrealistic_pct, 0.5)) + row("s_stuck_min", num("ge_stuck_min", g.unrealistic_after_min))) +
+    panel("s_flip", "s_flip_d",
+      row("s_on", sw("flip_enabled", f.enabled)) + row("s_flip_min", num("flip_min", f.min_profit_per_cycle, 1000)) +
+      row("s_flip_roi", num("flip_roi", f.min_roi_pct, 0.5)) + row("s_flip_cap", num("flip_cap", f.max_capital_per_slot, 10000)) +
+      row("s_flip_max", num("flip_max", f.max_alerts_per_scan)) + row("s_flip_cd", num("flip_cd", f.cooldown_hours))) +
+    panel("s_bond", "s_bond_d",
+      row("s_on", sw("bond_enabled", mv.bond_enabled !== false)) + row("s_bond_pct", num("bond_pct", mv.bond_alert_pct_below_7d, 0.5)) +
+      row("s_bond_fixed", num("bond_fixed", mv.bond_alert_below, 100000))) +
+    panel("s_moves", "s_moves_d", row("s_on", sw("moves_enabled", mv.enabled)) + row("s_moves_pct", num("moves_pct", mv.min_move_pct, 1))) +
+    panel("s_news", "s_news_d", row("s_on", sw("news_enabled", n.enabled)) +
+      `<label>${T("s_news_kw")}</label><textarea id="news_kw" style="min-height:60px">${esc((n.priority_keywords || []).join(", "))}</textarea>`) +
+    panel("s_stock", "s_stock_d", row("s_on", sw("stock_enabled", sp.enabled)) + row("s_stock_disc", num("stock_disc", sp.min_discount_pct, 1)) +
+      `<label>${T("s_stock_items")}</label><textarea id="stock_items">${esc((sp.items || []).join("\n"))}</textarea>`) +
+    panel("s_watch", "s_watch_d", `<table id="watch"><thead><tr><th class="left">${T("s_w_item")}</th><th>${T("s_w_cost")}</th><th>${T("s_w_sell")}</th><th>${T("s_w_buy")}</th><th></th></tr></thead>
+      <tbody>${Object.entries(g.watch || {}).map(([k, w]) => watchRow(k, w)).join("")}</tbody></table>
+      <button class="btn ghost" style="margin-top:8px" onclick="document.querySelector('#watch tbody').insertAdjacentHTML('beforeend', watchRow())">${T("s_w_add")}</button>`, "wide");
+  document.querySelectorAll("#settingsForm input, #settingsForm select, #settingsForm textarea").forEach(el => el.addEventListener("input", () => dirty = true));
+}
+const val = id => document.getElementById(id);
+const on = id => val(id).checked, nv = id => Number(val(id).value || 0);
+val("saveBtn").onclick = async () => {
+  const watch = {};
+  document.querySelectorAll("#watch tbody tr").forEach(tr => {
+    const name = tr.querySelector(".w-name").value.trim();
+    if (name) watch[name] = {cost: tr.querySelector(".w-cost").value, sell_alert_at: tr.querySelector(".w-sell").value, buy_alert_at: tr.querySelector(".w-buy").value};
+  });
+  const body = {
+    settings: {language: val("language").value, character: val("character").value || null,
+               scan_interval_sec: Math.max(1, nv("scan_min")) * 60, open_dashboard_on_start: on("open_dashboard_on_start"),
+               check_updates: on("check_updates")},
+    autostart: on("autostart"),
+    alerts: {
+      ge_offers: {enabled: on("ge_enabled"), partial_milestones_pct: val("ge_miles").value.split(","), unrealistic_pct: nv("ge_stuck_pct"),
+                  unrealistic_after_min: nv("ge_stuck_min"), watch},
+      flips: {enabled: on("flip_enabled"), min_profit_per_cycle: nv("flip_min"), min_roi_pct: nv("flip_roi"),
+              max_capital_per_slot: nv("flip_cap"), max_alerts_per_scan: nv("flip_max"), cooldown_hours: nv("flip_cd")},
+      moves: {enabled: on("moves_enabled"), min_move_pct: nv("moves_pct"), bond_enabled: on("bond_enabled"),
+              bond_alert_pct_below_7d: nv("bond_pct"), bond_alert_below: nv("bond_fixed")},
+      news: {enabled: on("news_enabled"), priority_keywords: val("news_kw").value.split(",")},
+      stockpile: {enabled: on("stock_enabled"), min_discount_pct: nv("stock_disc"), items: val("stock_items").value.split("\n")},
+    }
+  };
+  try {
+    const r = await post("/api/settings", body);
+    if (!r.ok) throw new Error(r.error || "error");
+    dirty = false;
+    val("saveMsg").textContent = "";
+    await refresh(); await loadSettings();
+    val("saveMsg").textContent = T("saved");
+  } catch (e) { val("saveMsg").textContent = T("save_err", {e: e.message}); }
+};
+
+// ------------------------------------------------------------------ boot
+(async () => {
+  await refresh();
+  applyI18n();
+  const tab = location.hash.replace("#", "");
+  showTab(["overview", "market", "progress", "claude", "settings"].includes(tab) ? tab : "overview");
+  setInterval(refresh, 5000);
+})();
+</script>
+</body>
+</html>
