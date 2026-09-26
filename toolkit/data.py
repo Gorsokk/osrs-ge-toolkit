@@ -56,8 +56,11 @@ def parse_ts(value):
     # Python < 3.11 only accepts up to 6 fractional digits
     if "." in s:
         head, rest = s.split(".", 1)
-        digits = "".join(ch for ch in rest if ch.isdigit())
-        tz = rest[len(digits):]
+        # only the digits right after the dot are fractions; keep the offset (e.g. -07:00)
+        i = 0
+        while i < len(rest) and rest[i].isdigit():
+            i += 1
+        digits, tz = rest[:i], rest[i:]
         s = f"{head}.{digits[:6]}{tz}"
     try:
         dt = datetime.fromisoformat(s)
@@ -213,6 +216,8 @@ class Prices:
             return self._by_name[ql], []
         starts = sorted((n for n in self._by_name if n.startswith(ql)), key=len)
         contains = sorted((n for n in self._by_name if ql in n and n not in starts), key=len)
+        if len(starts) == 1:   # e.g. "Draynor manor teleport" -> "Draynor manor teleport (tablet)"
+            return self._by_name[starts[0]], []
         fuzzy = difflib.get_close_matches(ql, list(self._by_name), n=5, cutoff=0.6)
         candidates = list(dict.fromkeys(starts + contains + fuzzy))
         if len(candidates) == 1 or (candidates and candidates[0] in fuzzy[:1] and not starts and not contains):

@@ -94,6 +94,7 @@
 <header>
   <h1>OSRS GE Toolkit</h1>
   <span class="sub" id="meta"></span>
+  <button class="btn green" id="playBtn" style="margin-left:auto" data-i18n="play"></button>
 </header>
 <nav id="tabs">
   <button data-tab="overview" class="active" data-i18n="tab_overview"></button>
@@ -202,6 +203,11 @@ const I18N = {
     s_general: "General", s_general_d: "Language, character and app behaviour.",
     s_lang: "Language", s_char: "Character", s_char_auto: "Most recently played", s_scan: "Scan every (minutes)",
     s_open: "Open this dashboard when the app starts", s_autostart: "Start with Windows", s_updates: "Check for updates",
+    play: "▶ Play", play_ok: "Opening RuneLite…", play_fail: "Could not open RuneLite: {e}",
+    s_rl: "RuneLite", s_rl_d: "The ▶ Play button, and opening the game together with the toolkit.",
+    s_rl_launch: "Open RuneLite when I start the toolkit", s_rl_launch_s: "not when it starts quietly with Windows",
+    s_rl_path: "RuneLite program", s_rl_path_s: "leave empty to find it automatically; or paste the path of RuneLite.exe or a .bat",
+    s_rl_found: "Found: {p}", s_rl_none: "RuneLite not found automatically: paste its path above.",
     s_ge: "GE offer alerts", s_ge_d: "Pop-ups when your offers fill, or look stuck.",
     s_on: "Enabled", s_miles: "Notify at (% filled)", s_miles_s: "comma-separated, completion is always notified",
     s_stuck_pct: "\"Stuck\" if price is off the market by (%)", s_stuck_min: "…for at least (minutes)",
@@ -265,6 +271,11 @@ const I18N = {
     s_general: "Général", s_general_d: "Langue, personnage et comportement de l'application.",
     s_lang: "Langue", s_char: "Personnage", s_char_auto: "Le dernier joué", s_scan: "Scanner toutes les (minutes)",
     s_open: "Ouvrir ce dashboard au démarrage", s_autostart: "Démarrer avec Windows", s_updates: "Vérifier les mises à jour",
+    play: "▶ Jouer", play_ok: "Ouverture de RuneLite…", play_fail: "Impossible d'ouvrir RuneLite : {e}",
+    s_rl: "RuneLite", s_rl_d: "Le bouton ▶ Jouer, et l'ouverture du jeu en même temps que l'outil.",
+    s_rl_launch: "Ouvrir RuneLite quand je lance l'outil", s_rl_launch_s: "pas quand il démarre discrètement avec Windows",
+    s_rl_path: "Programme RuneLite", s_rl_path_s: "laisse vide pour le trouver automatiquement, ou colle le chemin de RuneLite.exe ou d'un .bat",
+    s_rl_found: "Trouvé : {p}", s_rl_none: "RuneLite introuvable automatiquement : colle son chemin ci-dessus.",
     s_ge: "Alertes d'offres GE", s_ge_d: "Pop-ups quand tes offres se remplissent ou semblent bloquées.",
     s_on: "Activé", s_miles: "Prévenir à (% rempli)", s_miles_s: "séparés par des virgules, la fin est toujours signalée",
     s_stuck_pct: "« Bloquée » si le prix s'écarte du marché de (%)", s_stuck_min: "…pendant au moins (minutes)",
@@ -496,6 +507,11 @@ async function loadSettings() {
       row("s_open", sw("open_dashboard_on_start", s.open_dashboard_on_start)) +
       row("s_autostart", sw("autostart", r.autostart)) +
       row("s_updates", sw("check_updates", s.check_updates))) +
+    panel("s_rl", "s_rl_d",
+      row("s_rl_launch", sw("launch_runelite", s.launch_runelite), "s_rl_launch_s") +
+      `<label style="display:block;margin-top:12px">${T("s_rl_path")}<small style="display:block;margin:2px 0 6px">${T("s_rl_path_s")}</small></label>
+       <input type="text" id="runelite_path" value="${esc(s.runelite_path || "")}" placeholder="C:\\Users\\…\\AppData\\Local\\RuneLite\\RuneLite.exe" style="width:100%">
+       <p class="muted">${STATE && STATE.runelite && STATE.runelite.target ? T("s_rl_found", {p: esc(STATE.runelite.target)}) : T("s_rl_none")}</p>`) +
     panel("s_ge", "s_ge_d",
       row("s_on", sw("ge_enabled", g.enabled)) +
       row("s_miles", `<input type="text" id="ge_miles" value="${(g.partial_milestones_pct || []).join(", ")}" style="width:110px">`, "s_miles_s") +
@@ -528,7 +544,8 @@ val("saveBtn").onclick = async () => {
   const body = {
     settings: {language: val("language").value, character: val("character").value || null,
                scan_interval_sec: Math.max(1, nv("scan_min")) * 60, open_dashboard_on_start: on("open_dashboard_on_start"),
-               check_updates: on("check_updates")},
+               check_updates: on("check_updates"), launch_runelite: on("launch_runelite"),
+               runelite_path: val("runelite_path").value.trim()},
     autostart: on("autostart"),
     alerts: {
       ge_offers: {enabled: on("ge_enabled"), partial_milestones_pct: val("ge_miles").value.split(","), unrealistic_pct: nv("ge_stuck_pct"),
@@ -549,6 +566,14 @@ val("saveBtn").onclick = async () => {
     await refresh(); await loadSettings();
     val("saveMsg").textContent = T("saved");
   } catch (e) { val("saveMsg").textContent = T("save_err", {e: e.message}); }
+};
+
+// ------------------------------------------------------------------ play
+document.getElementById("playBtn").onclick = async () => {
+  try {
+    const r = await post("/api/runelite", {});
+    toast(r.ok ? T("play_ok") : T("play_fail", {e: r.message || r.error}));
+  } catch (e) { toast(T("play_fail", {e: e.message})); }
 };
 
 // ------------------------------------------------------------------ boot

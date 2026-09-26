@@ -250,6 +250,27 @@ class Notifier:
         threading.Thread(target=_messagebox, args=(full_title, body), daemon=True).start()
 
 
+# ------------------------------------------------------- une seule instance ---
+# The toolkit app and the old run_alerts.bat share this port: only one alert engine
+# can run at a time, so the same alert is never sent twice (or in two languages).
+SINGLE_INSTANCE_PORT = 47651
+_instance_lock = None
+
+
+def single_instance():
+    """True if no other alert engine is running (holds a localhost port for our lifetime)."""
+    global _instance_lock
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("127.0.0.1", SINGLE_INSTANCE_PORT))
+    except OSError:
+        s.close()
+        return False
+    _instance_lock = s
+    return True
+
+
 # ------------------------------------------------------------ export dir ---
 def find_export_dir():
     """Selected character (dashboard setting), else the most recently played one."""
@@ -379,7 +400,8 @@ class Alerts:
                         self.notify("GE", t("sell_done", name=name) if done else t("sell_pct", name=name, pct=int(pct_now)),
                                     t("sold_body", filled=filled, total=total, avg=gp(avg_lot), extra=body),
                                     important=done)
-            seen[slot] = {"key": key, "filled": filled, "spent": spent}
+            seen[slot] = {"key": key, "filled": filled, "spent": spent,
+                          "done": bool(s.get("complete") or (total and filled >= total))}
             self._check_unrealistic(slot, s)
         save_json(STATE_FILE, self.state)
 
@@ -426,7 +448,13 @@ class Alerts:
                 continue
             if any(v.get("key", "").startswith(f"{pos['item_id']}:SELL:") for v in self.state["offers"].values()):
                 continue      # deja en vente
+            if any(v.get("key", "").startswith(f"{pos['item_id']}:BUY:") and not v.get("done")
+                   for v in self.state["offers"].values()):
+                continue      # achat encore en cours: on attend la fin avant de dire de vendre
             hi = (self.latest.get(str(pos["item_id"])) or {}).get("high")
+            avg_hi_1h = (self.h1.get(str(pos["item_id"])) or {}).get("avgHighPrice")
+            if hi and avg_hi_1h:
+                hi = min(hi, avg_hi_1h)   # un seul echange cher ne suffit pas: prix prudent
             avg = pos["cost_total"] / pos["qty"]
             if hi and net_sell(hi) - avg >= max(1, avg * 0.01):
                 if self.cooldown_ok(f"pos:{name}", 1):
@@ -717,6 +745,11 @@ def main():
 
 def run_forever(export_dir=None, once=False):
     """Boucle principale des alertes (utilisee par main() et par le lanceur)."""
+    if not single_instance():
+        if not globals().get("_told_locked"):
+            log("Alerts already running elsewhere (another window or the OSRS GE Toolkit app): not starting a second copy.")
+            globals()["_told_locked"] = True
+        return
     if export_dir is None:
         export_dir = find_export_dir()
     cfg = load_config()

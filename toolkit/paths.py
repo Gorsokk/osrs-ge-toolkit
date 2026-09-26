@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 APP_NAME = "OSRS GE Toolkit"
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 GITHUB_REPO = "Gorsokk/osrs-ge-toolkit"
 
 RUNELITE_ROOT = Path.home() / ".runelite" / "character-exporter"

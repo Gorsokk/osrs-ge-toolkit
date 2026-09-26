@@ -5,6 +5,7 @@
 - /api/state             app status: version, character, problems, Claude, updates
 - /api/settings          GET / POST: general settings + alert settings
 - /api/claude            POST {"action": "connect" | "disconnect"}
+- /api/runelite          POST: open RuneLite (automatic or the program picked in Settings)
 - /api/ping              used to detect an already-running instance
 
 Listens on 127.0.0.1 only. Write requests must carry the X-Toolkit header and a
@@ -19,6 +20,7 @@ from urllib.parse import urlparse
 import autostart
 import claude_connect
 import data
+import runelite
 import settings
 import updates
 from paths import APP_NAME, VERSION, RESOURCE_DIR, DATA_DIR
@@ -106,9 +108,11 @@ def app_state():
     except Exception as e:
         claude = {"connected": False, "error": str(e)}
     upd = updates.check() if s.get("check_updates") else {"update_available": False, "current": VERSION}
+    rl_target, rl_source = runelite.resolve(s.get("runelite_path"))
     return {"app": APP_NAME, "version": VERSION, "language": s["language"], "character": name,
             "characters": data.list_characters(), "file_ages_min": files, "problems": problems,
-            "claude": claude, "update": upd, "autostart": autostart.is_enabled()}
+            "claude": claude, "update": upd, "autostart": autostart.is_enabled(),
+            "runelite": {"target": rl_target, "source": rl_source}}
 
 
 # ----------------------------------------------------------------- handler ---
@@ -186,6 +190,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 res = claude_connect.connect() if action == "connect" else claude_connect.disconnect()
                 ok = all(r[1] for r in res) and bool(res)
                 return self._send(200, {"ok": ok, "results": res, "status": claude_connect.status()})
+            if path == "/api/runelite":
+                ok, msg = runelite.launch(settings.load().get("runelite_path"))
+                return self._send(200, {"ok": ok, "message": msg})
             if path == "/api/check-update":
                 return self._send(200, updates.check(force=True))
         except Exception as e:

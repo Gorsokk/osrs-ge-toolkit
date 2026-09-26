@@ -21,7 +21,9 @@
   - cheap bond
   - official news
   - cheap skilling materials
+- **▶ Play button**: opens RuneLite from the dashboard or the tray. It can also open RuneLite for you when you start the toolkit. It finds RuneLite by itself, or you pick the program in Settings.
 - **Runs quietly** in the tray (next to the clock). English and French. Tells you when an update is out.
+- **Used the old stand-alone scripts** (`run_scan.bat` / `run_alerts.bat`)? The app imports their history once (profits, purchase costs, alert settings). After that you only need the app.
 
 ## Install (Windows 10/11)
 
@@ -94,11 +96,14 @@ Never use any tool to automate gameplay: it breaks Jagex's rules.
 
 L'interface est en anglais ou en français : dashboard → **Paramètres → Langue**.
 
+Le bouton **▶ Jouer** ouvre RuneLite. Dans **Paramètres → RuneLite**, tu peux aussi faire ouvrir le jeu en même temps que l'outil. Si tu utilisais les anciens scripts (`run_scan.bat` / `run_alerts.bat`), l'app reprend leur historique au premier lancement. Ensuite, tu n'as plus besoin que de l'app.
+
 ## For developers
 
 ```
 pip install -r requirements.txt
 python toolkit/launcher.py --no-tray     # app (dashboard on http://localhost:8765)
+python toolkit/launcher.py --play        # app + open RuneLite (also works if the app is already running)
 python toolkit/mcp_server.py             # Claude connector (MCP over stdio)
 ```
 

@@ -33,6 +33,8 @@ DEFAULTS = {
     "scan_interval_sec": 275,
     "open_dashboard_on_start": True,
     "check_updates": True,
+    "launch_runelite": False,   # open RuneLite when the toolkit is started by hand (not at Windows start)
+    "runelite_path": "",        # "" = find RuneLite / Jagex Launcher automatically; or a program / .bat
 }
 
 

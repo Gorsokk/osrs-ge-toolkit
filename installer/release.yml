@@ -1,0 +1,94 @@
+name: Build installer
+
+# - Every pushed tag "v1.2.3": builds the installer and publishes it in a GitHub Release.
+# - "Run workflow" (Actions tab): builds the installer as a downloadable artifact.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then v="${GITHUB_REF#refs/tags/v}"; else v="0.0.0-dev"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Smoke test (imports)
+        working-directory: toolkit
+        run: python -c "import paths, data, settings, i18n, market_scan, osrs_alerts, server, claude_connect, updates, autostart, mcp_server, launcher, runelite, legacy, pystray, winotify; from PIL import Image; Image.open('web/icon.ico'); print('imports ok')"
+
+      - name: Build tray app (PyInstaller, no console)
+        run: >
+          pyinstaller --noconfirm --clean --onedir --windowed
+          --name "OSRS GE Toolkit"
+          --icon assets/icon.ico
+          --paths toolkit
+          --add-data "toolkit/web;web"
+          --hidden-import market_scan --hidden-import osrs_alerts --hidden-import server
+          --hidden-import claude_connect --hidden-import updates --hidden-import autostart
+          --hidden-import runelite --hidden-import legacy
+          --hidden-import winotify --hidden-import pystray._win32
+          toolkit/launcher.py
+
+      - name: Build Claude connector (PyInstaller, stdio)
+        run: >
+          pyinstaller --noconfirm --clean --onedir --console
+          --name "osrs-ge-mcp"
+          --icon assets/icon.ico
+          --paths toolkit
+          --hidden-import market_scan --hidden-import claude_connect
+          --distpath dist/mcp-build
+          toolkit/mcp_server.py
+
+      - name: Assemble
+        shell: pwsh
+        run: Move-Item "dist/mcp-build/osrs-ge-mcp" "dist/OSRS GE Toolkit/mcp"
+
+      - name: Smoke test (Claude connector speaks MCP)
+        shell: pwsh
+        run: |
+          $init = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}'
+          $list = '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+          $out = ($init, $list) -join "`n" | & "dist/OSRS GE Toolkit/mcp/osrs-ge-mcp.exe"
+          $out
+          if (-not ($out -match '"get_status"')) { throw "connector did not list its tools" }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DMyAppVersion=${{ steps.ver.outputs.version }}" installer\toolkit.iss'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OSRS-GE-Toolkit-Setup
+          path: dist/OSRS-GE-Toolkit-Setup-*.exe
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/OSRS-GE-Toolkit-Setup-*.exe
+          generate_release_notes: true

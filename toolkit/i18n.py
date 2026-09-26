@@ -70,6 +70,11 @@ STRINGS = {
     # ---- tray / app
     "tray_open": {"en": "Open dashboard", "fr": "Ouvrir le dashboard"},
     "tray_settings": {"en": "Settings", "fr": "Paramètres"},
+    "tray_play": {"en": "Play (open RuneLite)", "fr": "Jouer (ouvrir RuneLite)"},
+    "runelite_fail": {"en": "Could not open RuneLite: {error}", "fr": "Impossible d'ouvrir RuneLite : {error}"},
+    "legacy_title": {"en": "Old scripts imported", "fr": "Anciens scripts importés"},
+    "legacy_body": {"en": "Your history from \"{folder}\" is now in the app. You can stop using run_scan.bat / run_alerts.bat.",
+                    "fr": "Ton historique de « {folder} » est maintenant dans l'app. Tu n'as plus besoin de run_scan.bat / run_alerts.bat."},
     "tray_claude_connect": {"en": "Connect to Claude", "fr": "Connecter à Claude"},
     "tray_claude_connected": {"en": "Connected to Claude ✓", "fr": "Connecté à Claude ✓"},
     "tray_folder": {"en": "Open settings folder", "fr": "Ouvrir le dossier de configuration"},

@@ -5,13 +5,15 @@ Runs in the background, next to the clock:
   - the GE scanner (flips + High Alch), every few minutes
   - the dashboard at http://localhost:8765 (opens in your browser)
   - Windows alerts (GE offers, flips, crashes/spikes, bond, news, cheap materials)
+  - "Play": opens RuneLite (optionally when the toolkit starts)
 Right-click the tray icon for the menu (dashboard, settings, Connect to Claude, quit).
 
 Game data comes from two RuneLite Plugin Hub plugins:
   - "Character Export" (by DZWNK): stats, bank, inventory, quests...
   - "Position Exporter" (this project): position + Grand Exchange offers
 
-Flags: --background (start silently, used by "Start with Windows"), --no-tray (dev/testing).
+Flags: --background (start silently, used by "Start with Windows"), --play (also open RuneLite,
+even if the toolkit is already running), --no-tray (dev/testing).
 """
 import os
 import sys
@@ -98,6 +100,8 @@ class App:
                 continue
             try:
                 osrs_alerts.run_forever()
+                # returns at once if another alert engine (e.g. an old run_alerts.bat window) is running
+                time.sleep(30)
             except Exception:
                 log("alerts crashed, restarting in 30 s:\n" + traceback.format_exc())
                 time.sleep(30)
@@ -136,6 +140,13 @@ class App:
 
     def open_settings(self, *_):
         webbrowser.open(self.url + "#settings")
+
+    def play(self, *_):
+        import runelite
+        ok, msg = runelite.launch(settings.load().get("runelite_path"))
+        log(f"RuneLite: {'started ' if ok else ''}{msg}")
+        if not ok:
+            self.notify(APP_NAME, t("runelite_fail", error=msg))
 
     def open_folder(self, *_):
         try:
@@ -182,6 +193,7 @@ class App:
         M = pystray.MenuItem
         menu = pystray.Menu(
             M(lambda _: t("tray_open"), self.open_dashboard, default=True),
+            M(lambda _: t("tray_play"), self.play),
             M(lambda _: t("tray_settings"), self.open_settings),
             M(self.claude_label, self.connect_claude),
             M(lambda _: t("tray_update", version=self.update.get("latest") or ""), self.open_update,
@@ -195,6 +207,16 @@ class App:
     def run(self):
         import server
         log(f"=== {APP_NAME} {VERSION} starting ===")
+        legacy_folder = None
+        try:
+            import legacy
+            legacy_folder = legacy.run()     # one-time import from the old stand-alone scripts
+            if legacy_folder:
+                log(f"imported history from old scripts in {legacy_folder}")
+        except Exception:
+            log("legacy import failed:\n" + traceback.format_exc())
+        if getattr(self, "force_play", False) or (not self.background and settings.load().get("launch_runelite")):
+            threading.Thread(target=self.play, daemon=True, name="runelite").start()
         httpd, self.port = server.start()
         if not self.port:
             log("no free port for the dashboard (8765-8775)")
@@ -212,6 +234,8 @@ class App:
             except KeyboardInterrupt:
                 return
         self.build_tray()
+        if legacy_folder:
+            threading.Timer(6.0, lambda: self.notify(t("legacy_title"), t("legacy_body", folder=legacy_folder.name))).start()
         if first_run:
             def hello():
                 time.sleep(3)
@@ -237,17 +261,35 @@ def already_running():
     return server.running_instance_port() is not None
 
 
+def ask_running_instance_to_play(port):
+    import urllib.request
+    try:
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/api/runelite", data=b"{}", method="POST",
+                                     headers={"X-Toolkit": "1", "Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=5).read()
+        return True
+    except Exception:
+        return False
+
+
 def main():
     setup_logging()
     background = "--background" in sys.argv
     tray = "--no-tray" not in sys.argv
+    play = "--play" in sys.argv        # "Play" shortcut: toolkit + RuneLite in one click
     if already_running():
         import server
         port = server.running_instance_port()
-        if port and not background:
+        if port and play:
+            if not ask_running_instance_to_play(port):
+                import runelite
+                runelite.launch(settings.load().get("runelite_path"))
+        elif port and not background:
             webbrowser.open(f"http://localhost:{port}/")
         return
-    App(background=background, tray=tray).run()
+    app = App(background=background, tray=tray)
+    app.force_play = play
+    app.run()
 
 
 if __name__ == "__main__":
