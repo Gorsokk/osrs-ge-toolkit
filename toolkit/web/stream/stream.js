@@ -49,7 +49,7 @@
     meld.lastReport = Date.now();
     const scenes = meldScenes();
     post("/api/stream/meld", { connected: meld.connected, scenes: scenes.map(s => s.name),
-                               current: (scenes.find(s => s.current) || {}).name || null,
+                               current: (scenes.find(s => s.current && !/\[vertical\]/i.test(s.name)) || scenes.find(s => s.current) || {}).name || null,
                                streaming: !!(meld.api && meld.api.isStreaming) });
   }
   function meldConnect() {
@@ -74,14 +74,15 @@
     document.head.appendChild(s);
   }
   let lastSceneReq = null;
+  const loadedAt = Date.now() / 1000;
   function handleSceneRequest(req) {
-    if (!req) return;
-    if (lastSceneReq === null) { lastSceneReq = req.id; return; }   // ignore requests made before this page loaded
-    if (req.id === lastSceneReq || !meld.api) return;
+    if (!req || req.id === lastSceneReq || !meld.api) return;
+    if (req.ts < loadedAt - 2 || Date.now() / 1000 - req.ts > 60) { lastSceneReq = req.id; return; }   // old request: don't replay
     lastSceneReq = req.id;
     const want = String(req.scene).trim().toLowerCase();
-    const scene = meldScenes().find(s => s.name.toLowerCase() === want) ||
-                  meldScenes().find(s => s.name.toLowerCase().includes(want));
+    const all = meldScenes(), main = all.filter(s => !/\[vertical\]/i.test(s.name));
+    const scene = main.find(s => s.name.toLowerCase() === want) || all.find(s => s.name.toLowerCase() === want) ||
+                  main.find(s => s.name.toLowerCase().includes(want));
     if (scene && !scene.current) meld.api.showScene(scene.id);
   }
 
