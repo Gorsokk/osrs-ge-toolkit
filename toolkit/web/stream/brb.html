@@ -1,0 +1,79 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>OSRS Toolkit · scene</title>
+<link rel="stylesheet" href="/stream/stream.css">
+<style>
+  /* One page for the three full-screen scenes: /stream/starting, /stream/brb, /stream/ending.
+     Options: ?min=5 (countdown, starting only), ?topic=Tonight%3A%20...  ?lang=en|fr */
+  .wrap { position: fixed; inset: 0; display: grid; grid-template-columns: 1fr 560px; gap: 40px; padding: 90px 100px; }
+  .main { display: flex; flex-direction: column; justify-content: center; }
+  .big { font-size: 118px; line-height: 1; }
+  .topic { margin-top: 26px; font-size: 34px; font-weight: 700; color: var(--ink); }
+  .count { margin-top: 30px; font-family: var(--pixel); font-size: 30px; letter-spacing: 3px; color: var(--muted); }
+  .count b { color: var(--gold); font-size: 56px; letter-spacing: 4px; }
+  .links { margin-top: 44px; display: flex; gap: 16px; flex-wrap: wrap; }
+  .link { padding: 12px 18px; border-radius: 8px; font-size: 22px; font-weight: 800; background: #000a; border: 1px solid var(--edge); }
+  .link small { display: block; font-family: var(--pixel); font-size: 11px; letter-spacing: 2px; color: var(--muted); font-weight: 400; }
+  .side { display: flex; flex-direction: column; gap: 24px; justify-content: center; }
+  .qlist { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .qlist div { font-size: 18px; } .qlist b { color: var(--gold); }
+  .chart { position: fixed; left: 0; right: 0; bottom: 0; height: 260px; opacity: .45; pointer-events: none; }
+  .chart polyline { stroke-dasharray: 3000; stroke-dashoffset: 3000; animation: draw 9s ease-out forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  #claude-slot { position: fixed; left: 100px; bottom: 90px; }
+  #toast-slot { position: fixed; right: 100px; bottom: 90px; }
+</style></head>
+<body class="scene">
+  <svg class="chart" viewBox="0 0 1920 260" preserveAspectRatio="none">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3ddc84" stop-opacity=".3"/><stop offset="1" stop-color="#3ddc84" stop-opacity="0"/></linearGradient></defs>
+    <path d="M0 230 L160 214 L320 224 L480 180 L640 196 L800 150 L960 166 L1120 124 L1280 138 L1440 92 L1600 106 L1760 58 L1920 36 L1920 260 L0 260Z" fill="url(#g)"/>
+    <polyline points="0,230 160,214 320,224 480,180 640,196 800,150 960,166 1120,124 1280,138 1440,92 1600,106 1760,58 1920,36" fill="none" stroke="#3ddc84" stroke-width="4"/>
+  </svg>
+  <div class="frame"></div>
+  <div class="wrap">
+    <div class="main">
+      <div class="kicker" id="who">OLD SCHOOL RUNESCAPE</div>
+      <div class="title big" id="headline"></div>
+      <div class="topic" id="topic"></div>
+      <div class="count hidden" id="count"><span data-t="live_in"></span> <b id="clock">--:--</b></div>
+      <div class="links" id="links"></div>
+    </div>
+    <div class="side">
+      <div class="card bond" data-bond data-size="30"></div>
+      <div class="card">
+        <div class="kicker"><span class="claude-mark">✳ Claude</span> · !ask</div>
+        <div class="qlist" id="qlist"></div>
+      </div>
+    </div>
+  </div>
+  <div id="claude-slot"></div>
+  <div id="toast-slot" class="toasts"></div>
+<script src="/stream/stream.js"></script>
+<script>
+  const P = Stream.params;
+  const page = "brb";
+  const topic = P.get("topic");
+  if (topic) document.getElementById("topic").textContent = topic;
+  let end = null;
+  if (page === "starting") {
+    const min = parseFloat(P.get("min") || "5");
+    if (min > 0) { end = Date.now() + min * 60000; document.getElementById("count").classList.remove("hidden"); }
+  }
+  setInterval(() => {
+    if (!end) return;
+    const left = Math.max(0, Math.round((end - Date.now()) / 1000));
+    document.getElementById("clock").textContent = left ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : Stream.t("now");
+  }, 500);
+  Stream.start({ onState: s => {
+    document.getElementById("headline").textContent = Stream.t(page);
+    if (s.streamer) document.getElementById("who").textContent = s.streamer + " · OLD SCHOOL RUNESCAPE";
+    const L = [];
+    if (s.links.toolkit) L.push(`<div class="link"><small>${Stream.t("tools")}</small>!toolkit · ${Stream.esc(s.links.toolkit.replace(/^https?:\/\//, ""))}</div>`);
+    if (s.links.kofi) L.push(`<div class="link"><small>${Stream.t("support")}</small>!kofi · ${Stream.esc(s.links.kofi.replace(/^https?:\/\//, ""))}</div>`);
+    document.getElementById("links").innerHTML = L.join("");
+    const q = s.questions.slice(0, 5);
+    document.getElementById("qlist").innerHTML = q.length
+      ? q.map(x => `<div><b>${Stream.esc(x.user)}</b> · ${Stream.esc(x.text)}</div>`).join("")
+      : `<div style="color:var(--muted)">${Stream.t("none")}</div>`;
+  }});
+</script>
+</body></html>

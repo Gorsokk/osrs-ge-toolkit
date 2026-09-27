@@ -34,7 +34,7 @@ jobs:
 
       - name: Smoke test (imports)
         working-directory: toolkit
-        run: python -c "import paths, data, settings, i18n, market_scan, osrs_alerts, server, claude_connect, updates, autostart, mcp_server, launcher, pystray, winotify; from PIL import Image; Image.open('web/icon.ico'); print('imports ok')"
+        run: python -c "import paths, data, settings, i18n, market_scan, osrs_alerts, server, stream, claude_connect, updates, autostart, mcp_server, launcher, runelite, legacy, pystray, winotify; from PIL import Image; Image.open('web/icon.ico'); print('imports ok')"
 
       - name: Build tray app (PyInstaller, no console)
         run: >
@@ -43,8 +43,9 @@ jobs:
           --icon assets/icon.ico
           --paths toolkit
           --add-data "toolkit/web;web"
-          --hidden-import market_scan --hidden-import osrs_alerts --hidden-import server
+          --hidden-import market_scan --hidden-import osrs_alerts --hidden-import server --hidden-import stream
           --hidden-import claude_connect --hidden-import updates --hidden-import autostart
+          --hidden-import runelite --hidden-import legacy
           --hidden-import winotify --hidden-import pystray._win32
           toolkit/launcher.py
 
@@ -82,12 +83,12 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: OSRS-GE-Toolkit-Setup
-          path: dist/OSRS-GE-Toolkit-Setup-*.exe
+          name: OSRS-Toolkit-Setup
+          path: dist/OSRS-Toolkit-Setup-*.exe
 
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/OSRS-GE-Toolkit-Setup-*.exe
+          files: dist/OSRS-Toolkit-Setup-*.exe
           generate_release_notes: true

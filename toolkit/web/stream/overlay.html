@@ -1,0 +1,43 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>OSRS Toolkit · overlay</title>
+<link rel="stylesheet" href="/stream/stream.css">
+<style>
+  /* Transparent in-game overlay. Keep the corners clear for the OSRS client:
+     top-left = chatbox-free area on most layouts, minimap is top-right, chatbox bottom-left. */
+  #bond { position: fixed; top: 250px; right: 26px; width: 330px; }
+  #claude-slot { position: fixed; right: 26px; top: 420px; }
+  #toast-slot { position: fixed; right: 26px; bottom: 110px; }
+  #ticker { position: fixed; left: 540px; right: 26px; bottom: 26px; }
+  #queue { margin-left: auto; font-size: 16px; color: var(--claude); white-space: nowrap; }
+</style></head>
+<body class="transparent">
+  <div id="bond" class="card bond" data-bond data-size="22"></div>
+  <div id="claude-slot"></div>
+  <div id="toast-slot" class="toasts"></div>
+  <div id="ticker" class="ticker"><span class="tag">LIVE GE</span><span class="msg" id="msg"></span><span id="queue"></span></div>
+<script src="/stream/stream.js"></script>
+<script>
+  // ?bond=0 hides the bond card, ?ticker=0 hides the ticker, ?alerts=0 hides GE alert toasts, ?meld=0 no scene control
+  const P = Stream.params;
+  if (P.get("bond") === "0") document.getElementById("bond").remove();
+  if (P.get("ticker") === "0") document.getElementById("ticker").remove();
+  let i = 0;
+  function tick() {
+    const s = Stream.state, el = document.getElementById("msg");
+    if (el && s) {
+      const items = [Stream.t("ask_hint"), Stream.t("ge_hint")];
+      if (s.flip) items.push(Stream.t("flip", { name: Stream.esc(s.flip.name), buy: Stream.gp(s.flip.buy),
+                                                 sell: Stream.gp(s.flip.sell), margin: Stream.gp(s.flip.margin) }));
+      for (const a of (s.alerts || []).slice(0, 2)) items.push(`<b>${Stream.esc(a.title)}</b> · ${Stream.esc(a.body || "")}`);
+      el.style.opacity = 0;
+      setTimeout(() => { el.innerHTML = items[i++ % items.length]; el.style.opacity = 1; }, 400);
+    }
+    setTimeout(tick, 9000);
+  }
+  Stream.start({ onState: s => {
+    const q = document.getElementById("queue");
+    if (q) q.innerHTML = s.questions.length ? Stream.CLAUDE_ICON.replace("<svg", '<svg style="width:16px;height:16px;vertical-align:-2px"') + " " + Stream.t("queue", { n: s.questions.length }) : "";
+  }});
+  setTimeout(tick, 1500);
+</script>
+</body></html>

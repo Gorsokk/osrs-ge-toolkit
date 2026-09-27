@@ -10,14 +10,15 @@ import os
 import sys
 from pathlib import Path
 
-APP_NAME = "OSRS GE Toolkit"
-VERSION = "1.2.0"
-GITHUB_REPO = "Gorsokk/osrs-ge-toolkit"
+APP_NAME = "OSRS Toolkit"        # formerly "OSRS GE Toolkit" (now the GE module of OSRS Toolkit)
+DATA_FOLDER = "OSRS GE Toolkit"  # kept so settings and history survive the rename
+VERSION = "1.3.0"
+GITHUB_REPO = "Gorsokk/osrs-toolkit"
 
 RUNELITE_ROOT = Path.home() / ".runelite" / "character-exporter"
 
 if sys.platform == "win32" and os.environ.get("APPDATA"):
-    DATA_DIR = Path(os.environ["APPDATA"]) / APP_NAME
+    DATA_DIR = Path(os.environ["APPDATA"]) / DATA_FOLDER
 else:
     DATA_DIR = Path.home() / ".config" / "osrs-ge-toolkit"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -30,4 +31,4 @@ else:
 LOG_FILE = DATA_DIR / "toolkit.log"
 
 # The OSRS Wiki asks for a descriptive User-Agent with a way to contact the author.
-USER_AGENT = f"osrs-ge-toolkit/{VERSION} (+https://github.com/{GITHUB_REPO})"
+USER_AGENT = f"osrs-toolkit/{VERSION} (+https://github.com/{GITHUB_REPO})"

@@ -232,7 +232,7 @@ class Notifier:
             return
         if HAVE_WINOTIFY:
             try:
-                n = Notification(app_id="OSRS GE Toolkit", title=full_title, msg=body,
+                n = Notification(app_id="OSRS Toolkit", title=full_title, msg=body,
                                  duration="long" if important else "short")
                 if url:
                     n.add_actions(label=t("open"), launch=url)
@@ -747,7 +747,7 @@ def run_forever(export_dir=None, once=False):
     """Boucle principale des alertes (utilisee par main() et par le lanceur)."""
     if not single_instance():
         if not globals().get("_told_locked"):
-            log("Alerts already running elsewhere (another window or the OSRS GE Toolkit app): not starting a second copy.")
+            log("Alerts already running elsewhere (another window or the OSRS Toolkit app): not starting a second copy.")
             globals()["_told_locked"] = True
         return
     if export_dir is None:

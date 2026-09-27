@@ -1,0 +1,67 @@
+/* OSRS Toolkit - stream pages (Meld Studio / OBS browser sources, 1920x1080) */
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@500;600;700;800&family=Silkscreen&display=swap");
+:root {
+  --gold: #e8b64a; --gold-dark: #a8791f; --edge: #5b4318; --ink: #f3e7c9; --muted: #b9a883;
+  --stone: #1b1712; --stone2: #2a241c; --green: #3ddc84; --red: #ff5d5d; --claude: #e89a6c;
+  --serif: "Cinzel", Georgia, serif; --sans: "Inter", "Segoe UI", sans-serif; --pixel: "Silkscreen", monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; font-family: var(--sans); color: var(--ink); }
+body.transparent { background: transparent; }
+body.scene {
+  background: radial-gradient(70% 90% at 50% 0%, #4a3a22 0%, var(--stone2) 45%, #0e0c09 100%);
+}
+body.scene::before {
+  content: ""; position: fixed; inset: 0; opacity: .06; pointer-events: none;
+  background-image: repeating-linear-gradient(0deg, #fff 0 1px, transparent 1px 6px),
+                    repeating-linear-gradient(90deg, #fff 0 1px, transparent 1px 6px);
+}
+.frame { position: fixed; inset: 22px; border: 3px solid var(--gold-dark);
+  box-shadow: inset 0 0 0 4px #3b2a10, inset 0 0 0 6px var(--edge); pointer-events: none; }
+
+/* cards */
+.card { position: relative; border-radius: 10px; padding: 18px 22px;
+  background: linear-gradient(180deg, rgba(42,36,28,.94), rgba(20,17,13,.94));
+  border: 2px solid var(--gold-dark); box-shadow: inset 0 0 0 1px #000, inset 0 0 0 3px var(--edge), 0 8px 30px #0008; }
+.kicker { font-family: var(--pixel); font-size: 14px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+.title { font-family: var(--serif); font-weight: 900; color: var(--gold); text-shadow: 0 3px 0 #000, 0 0 20px #e8b64a44; }
+
+/* bond progress */
+.bond .row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.bond .pct { font-family: var(--serif); font-weight: 900; font-size: 30px; color: var(--gold); text-shadow: 0 2px 0 #000; }
+.bar { height: 16px; margin-top: 10px; border-radius: 4px; background: #000a; border: 1px solid var(--edge); overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0; transition: width 1.2s ease;
+  background: linear-gradient(90deg, #b9861f, #ffd36e); box-shadow: 0 0 12px #e8b64a88; }
+.bond .nums { margin-top: 8px; font-size: 16px; font-weight: 700; color: var(--muted); }
+.bond .nums b { color: var(--ink); }
+
+/* Claude bubble */
+.claude-bubble { width: 620px; opacity: 0; transform: translateY(20px); transition: opacity .5s, transform .5s; }
+.claude-bubble.show { opacity: 1; transform: none; }
+.claude-bubble .who { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; color: var(--claude); }
+.claude-bubble .who svg { width: 26px; height: 26px; }
+.claude-bubble .q { margin-top: 10px; font-size: 17px; color: var(--muted); font-style: italic; }
+.claude-bubble .q b { color: var(--ink); font-style: normal; }
+.claude-bubble .a { margin-top: 8px; font-size: 23px; line-height: 1.35; font-weight: 600; }
+
+/* toasts (bot answers, GE alerts) */
+.toasts { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+.toast { max-width: 640px; padding: 12px 18px; border-radius: 8px; font-size: 19px; font-weight: 700;
+  background: rgba(15,12,9,.92); border: 1px solid var(--edge); border-left: 5px solid var(--gold);
+  animation: toastIn .4s ease, toastOut .6s ease 11.4s forwards; }
+.toast.alert { border-left-color: var(--green); }
+.toast.alert.important { border-left-color: var(--red); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(30px); } }
+@keyframes toastOut { to { opacity: 0; transform: translateX(30px); } }
+
+/* ticker */
+.ticker { display: flex; align-items: center; gap: 14px; height: 54px; padding: 0 20px; border-radius: 8px;
+  background: rgba(15,12,9,.9); border: 2px solid var(--gold-dark); box-shadow: inset 0 0 0 2px var(--edge); font-size: 20px; font-weight: 700; }
+.ticker .tag { font-family: var(--pixel); font-size: 13px; letter-spacing: 2px; color: #1b1206; background: var(--gold);
+  padding: 4px 8px; border-radius: 3px; }
+.ticker .msg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .4s; }
+.up { color: var(--green); } .down { color: var(--red); }
+code.cmd { font-family: var(--pixel); font-size: .8em; color: var(--gold); background: #0008; padding: 2px 8px;
+  border-radius: 4px; border: 1px solid var(--edge); }
+.claude-mark { color: var(--claude); font-weight: 800; }
+.hidden { display: none !important; }

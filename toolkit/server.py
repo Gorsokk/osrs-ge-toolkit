@@ -7,6 +7,8 @@
 - /api/claude            POST {"action": "connect" | "disconnect"}
 - /api/runelite          POST: open RuneLite (automatic or the program picked in Settings)
 - /api/ping              used to detect an already-running instance
+- /stream/<page>         stream pages for Meld Studio / OBS browser sources (overlay, starting, brb, ending)
+- /api/stream/state      GET: what the overlay shows; POST /api/stream/*: Claude co-host, scenes, test commands
 
 Listens on 127.0.0.1 only. Write requests must carry the X-Toolkit header and a
 localhost Host header, so other websites can't change your settings.
@@ -23,6 +25,7 @@ import data
 import runelite
 import settings
 import updates
+from stream import STREAM
 from paths import APP_NAME, VERSION, RESOURCE_DIR, DATA_DIR
 
 PORTS = range(8765, 8776)
@@ -115,6 +118,39 @@ def app_state():
             "runelite": {"target": rl_target, "source": rl_source}}
 
 
+# ------------------------------------------------------------------ stream ---
+STREAM_PAGES = {"overlay", "starting", "brb", "ending"}
+STREAM_ASSETS = {"stream.js": "text/javascript; charset=utf-8", "stream.css": "text/css; charset=utf-8"}
+
+
+def stream_post(action, body):
+    """(status, json) for POST /api/stream/<action>."""
+    if action == "say":
+        text = str(body.get("text") or "").strip()
+        if not text:
+            return 400, {"ok": False, "error": "text is required"}
+        item = STREAM.claude_say(text, body.get("question_id"), to_chat=body.get("to_chat", True) is not False)
+        return 200, {"ok": True, "shown": item}
+    if action == "skip":
+        return 200, {"ok": STREAM.skip_question(body.get("question_id"))}
+    if action == "scene":
+        scene = str(body.get("scene") or "").strip()
+        if not scene:
+            return 400, {"ok": False, "error": "scene is required"}
+        return 200, {"ok": True, "request": STREAM.request_scene(scene), "meld": STREAM.state(False)["meld"]}
+    if action == "meld":      # the overlay page reports what it sees in Meld Studio
+        STREAM.meld_report(body)
+        return 200, {"ok": True}
+    if action == "command":   # test a chat command from the dashboard without Twitch
+        user = str(body.get("user") or "tester")[:25]
+        text = str(body.get("text") or "")
+        last = max((f["id"] for f in STREAM.feed), default=0)
+        STREAM.cooldowns.clear()
+        STREAM.command(user, text, STREAM.cfg())
+        return 200, {"ok": True, "answers": [f for f in STREAM.feed if f["id"] > last]}
+    return 404, {"ok": False, "error": "unknown action"}
+
+
 # ----------------------------------------------------------------- handler ---
 class Handler(http.server.BaseHTTPRequestHandler):
     server_version = "OSRSGEToolkit"
@@ -145,6 +181,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/favicon.ico":
             ico = RESOURCE_DIR / "web" / "icon.ico"
             return self._send(200, ico.read_bytes(), "image/x-icon") if ico.exists() else self._send(404, b"", "text/plain")
+        if path.startswith("/stream/"):
+            page = path[len("/stream/"):].strip("/") or "overlay"
+            if page in STREAM_ASSETS:
+                return self._send(200, (RESOURCE_DIR / "web" / "stream" / page).read_bytes(), STREAM_ASSETS[page])
+            if page not in STREAM_PAGES:
+                return self._send(404, {"error": "unknown page"})
+            html = (RESOURCE_DIR / "web" / "stream" / f"{page}.html").read_bytes()
+            return self._send(200, html, "text/html; charset=utf-8")
+        if path == "/api/stream/state":
+            return self._send(200, STREAM.state())
+        if path == "/api/stream/chat":
+            return self._send(200, STREAM.chat_snapshot())
         if path == "/api/ping":
             return self._send(200, {"app": "osrs-ge-toolkit", "version": VERSION})
         if path == "/api/state":
@@ -193,6 +241,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if path == "/api/runelite":
                 ok, msg = runelite.launch(settings.load().get("runelite_path"))
                 return self._send(200, {"ok": ok, "message": msg})
+            if path.startswith("/api/stream/"):
+                return self._send(*stream_post(path[len("/api/stream/"):], body))
             if path == "/api/check-update":
                 return self._send(200, updates.check(force=True))
         except Exception as e:

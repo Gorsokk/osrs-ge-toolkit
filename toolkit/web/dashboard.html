@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OSRS GE Toolkit</title>
+<title>OSRS Toolkit</title>
 <link rel="icon" href="/favicon.ico">
 <style>
   :root {
@@ -66,7 +66,7 @@
            border-top: 1px solid var(--border); }
   .field:first-of-type { border-top: 0; }
   .field label { flex: 1; } .field small { display: block; color: var(--muted); font-size: 12px; }
-  input[type=number], input[type=text], select, textarea {
+  input[type=number], input[type=text], input[type=password], select, textarea {
     background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 13px; }
   input[type=number] { width: 110px; text-align: right; } textarea { width: 100%; min-height: 110px; font-family: inherit; }
   .switch { position: relative; width: 38px; height: 22px; flex: none; }
@@ -92,7 +92,7 @@
 </head>
 <body>
 <header>
-  <h1>OSRS GE Toolkit</h1>
+  <h1>OSRS Toolkit</h1>
   <span class="sub" id="meta"></span>
   <button class="btn green" id="playBtn" style="margin-left:auto" data-i18n="play"></button>
 </header>
@@ -208,6 +208,13 @@ const I18N = {
     s_rl_launch: "Open RuneLite when I start the toolkit", s_rl_launch_s: "not when it starts quietly with Windows",
     s_rl_path: "RuneLite program", s_rl_path_s: "leave empty to find it automatically; or paste the path of RuneLite.exe or a .bat",
     s_rl_found: "Found: {p}", s_rl_none: "RuneLite not found automatically: paste its path above.",
+    s_stream: "Stream (Twitch + Meld Studio / OBS)", s_stream_d: "Chat commands (!ge, !bond, !flip, !toolkit, !kofi, !ask), an overlay and scenes for your stream, and Claude as co-host.",
+    s_st_on: "Connect to Twitch chat", s_st_chan: "Twitch channel", s_st_name: "Name shown in !bond", s_st_name_s: "empty = character name",
+    s_st_bot: "Bot account (to reply in chat)", s_st_bot_s: "optional: without it, answers only show on the overlay",
+    s_st_tok: "Bot chat token", s_st_tok_s: "oauth:… token of the bot account; stays on this PC", s_st_kofi: "Link for !kofi", s_st_tool: "Link for !toolkit", s_st_tool_s: "empty = the toolkit's GitHub page",
+    s_st_status: "Chat: {s}", s_st_src: "Browser sources (1920×1080) — add them in Meld Studio or OBS:",
+    s_st_src_d: "Put the overlay in every scene so Claude can switch scenes. In Meld: Settings → turn on the local API (port 13376).",
+    s_st_test: "Test a command", s_st_run: "Run",
     s_ge: "GE offer alerts", s_ge_d: "Pop-ups when your offers fill, or look stuck.",
     s_on: "Enabled", s_miles: "Notify at (% filled)", s_miles_s: "comma-separated, completion is always notified",
     s_stuck_pct: "\"Stuck\" if price is off the market by (%)", s_stuck_min: "…for at least (minutes)",
@@ -223,7 +230,7 @@ const I18N = {
     s_watch: "Price targets", s_watch_d: "Your own alerts for specific items.",
     s_w_item: "Item", s_w_cost: "Your cost", s_w_sell: "Alert if sells ≥", s_w_buy: "Alert if buyable ≤", s_w_add: "+ Add item",
     save: "Save settings", saved: "Saved ✓ — alerts use the new settings within a minute.", save_err: "Could not save: {e}",
-    footer: "OSRS GE Toolkit {v} · prices: OSRS Wiki · not affiliated with Jagex or RuneLite · refreshed {t}",
+    footer: "OSRS Toolkit {v} · prices: OSRS Wiki · not affiliated with Jagex or RuneLite · refreshed {t}",
     ex1: "How are my GE offers doing? Should I change any price?", ex1s: "checks your 8 slots against the live market",
     ex2: "Where am I, and what's the next step of my current quest?", ex2s: "uses your live position + quests",
     ex3: "Make me a plan to afford a bond as fast as possible.", ex3s: "bank value + market + your stats",
@@ -276,6 +283,13 @@ const I18N = {
     s_rl_launch: "Ouvrir RuneLite quand je lance l'outil", s_rl_launch_s: "pas quand il démarre discrètement avec Windows",
     s_rl_path: "Programme RuneLite", s_rl_path_s: "laisse vide pour le trouver automatiquement, ou colle le chemin de RuneLite.exe ou d'un .bat",
     s_rl_found: "Trouvé : {p}", s_rl_none: "RuneLite introuvable automatiquement : colle son chemin ci-dessus.",
+    s_stream: "Stream (Twitch + Meld Studio / OBS)", s_stream_d: "Commandes de chat (!ge, !bond, !flip, !toolkit, !kofi, !ask), un overlay et des scènes pour ton stream, et Claude comme co-animateur.",
+    s_st_on: "Se connecter au chat Twitch", s_st_chan: "Chaîne Twitch", s_st_name: "Nom affiché dans !bond", s_st_name_s: "vide = nom du personnage",
+    s_st_bot: "Compte bot (pour répondre dans le chat)", s_st_bot_s: "optionnel : sans lui, les réponses s'affichent seulement sur l'overlay",
+    s_st_tok: "Jeton de chat du bot", s_st_tok_s: "jeton oauth:… du compte bot; reste sur ce PC", s_st_kofi: "Lien pour !kofi", s_st_tool: "Lien pour !toolkit", s_st_tool_s: "vide = la page GitHub du toolkit",
+    s_st_status: "Chat : {s}", s_st_src: "Sources navigateur (1920×1080) — ajoute-les dans Meld Studio ou OBS :",
+    s_st_src_d: "Mets l'overlay dans chaque scène pour que Claude puisse changer de scène. Dans Meld : Paramètres → active l'API locale (port 13376).",
+    s_st_test: "Tester une commande", s_st_run: "Lancer",
     s_ge: "Alertes d'offres GE", s_ge_d: "Pop-ups quand tes offres se remplissent ou semblent bloquées.",
     s_on: "Activé", s_miles: "Prévenir à (% rempli)", s_miles_s: "séparés par des virgules, la fin est toujours signalée",
     s_stuck_pct: "« Bloquée » si le prix s'écarte du marché de (%)", s_stuck_min: "…pendant au moins (minutes)",
@@ -291,7 +305,7 @@ const I18N = {
     s_watch: "Seuils de prix", s_watch_d: "Tes propres alertes sur des objets précis.",
     s_w_item: "Objet", s_w_cost: "Ton coût", s_w_sell: "Alerte si vend ≥", s_w_buy: "Alerte si achetable ≤", s_w_add: "+ Ajouter",
     save: "Enregistrer", saved: "Enregistré ✓ — les alertes utilisent les nouveaux réglages d'ici une minute.", save_err: "Impossible d'enregistrer : {e}",
-    footer: "OSRS GE Toolkit {v} · prix : OSRS Wiki · non affilié à Jagex ni à RuneLite · rafraîchi {t}",
+    footer: "OSRS Toolkit {v} · prix : OSRS Wiki · non affilié à Jagex ni à RuneLite · rafraîchi {t}",
     ex1: "Comment vont mes offres GE ? Je devrais changer un prix ?", ex1s: "compare tes 8 slots au marché en direct",
     ex2: "Où suis-je, et quelle est la prochaine étape de ma quête ?", ex2s: "utilise ta position + tes quêtes",
     ex3: "Fais-moi un plan pour me payer un bond le plus vite possible.", ex3s: "valeur de banque + marché + tes stats",
@@ -512,6 +526,23 @@ async function loadSettings() {
       `<label style="display:block;margin-top:12px">${T("s_rl_path")}<small style="display:block;margin:2px 0 6px">${T("s_rl_path_s")}</small></label>
        <input type="text" id="runelite_path" value="${esc(s.runelite_path || "")}" placeholder="C:\\Users\\…\\AppData\\Local\\RuneLite\\RuneLite.exe" style="width:100%">
        <p class="muted">${STATE && STATE.runelite && STATE.runelite.target ? T("s_rl_found", {p: esc(STATE.runelite.target)}) : T("s_rl_none")}</p>`) +
+    panel("s_stream", "s_stream_d",
+      row("s_st_on", sw("stream_enabled", s.stream_enabled)) +
+      row("s_st_chan", `<input type="text" id="stream_channel" value="${esc(s.stream_channel || "")}" placeholder="blodvis" style="width:180px">`) +
+      row("s_st_name", `<input type="text" id="stream_display_name" value="${esc(s.stream_display_name || "")}" style="width:180px">`, "s_st_name_s") +
+      row("s_st_bot", `<input type="text" id="stream_bot_name" value="${esc(s.stream_bot_name || "")}" style="width:180px">`, "s_st_bot_s") +
+      row("s_st_tok", `<input type="password" id="stream_bot_token" value="${esc(s.stream_bot_token || "")}" placeholder="oauth:…" style="width:180px" autocomplete="off">`, "s_st_tok_s") +
+      row("s_st_kofi", `<input type="text" id="stream_kofi_url" value="${esc(s.stream_kofi_url || "")}" placeholder="https://ko-fi.com/…" style="width:240px">`) +
+      row("s_st_tool", `<input type="text" id="stream_toolkit_url" value="${esc(s.stream_toolkit_url || "")}" style="width:240px">`, "s_st_tool_s") +
+      `<p class="muted" id="streamStatus"></p>
+       <label style="display:block;margin-top:10px">${T("s_st_src")}</label>
+       <div style="display:grid;gap:4px;margin-top:6px">${["overlay", "starting", "brb", "ending"].map(p =>
+         `<code style="user-select:all">${location.origin}/stream/${p}</code>`).join("")}</div>
+       <p class="muted">${T("s_st_src_d")}</p>
+       <label style="display:block;margin-top:10px">${T("s_st_test")}</label>
+       <div style="display:flex;gap:8px;margin-top:6px"><input type="text" id="stream_test" value="!bond" style="flex:1">
+         <button class="btn ghost" id="streamTestBtn" type="button">${T("s_st_run")}</button></div>
+       <p class="muted" id="streamTestOut"></p>`, "wide") +
     panel("s_ge", "s_ge_d",
       row("s_on", sw("ge_enabled", g.enabled)) +
       row("s_miles", `<input type="text" id="ge_miles" value="${(g.partial_milestones_pct || []).join(", ")}" style="width:110px">`, "s_miles_s") +
@@ -531,7 +562,14 @@ async function loadSettings() {
     panel("s_watch", "s_watch_d", `<table id="watch"><thead><tr><th class="left">${T("s_w_item")}</th><th>${T("s_w_cost")}</th><th>${T("s_w_sell")}</th><th>${T("s_w_buy")}</th><th></th></tr></thead>
       <tbody>${Object.entries(g.watch || {}).map(([k, w]) => watchRow(k, w)).join("")}</tbody></table>
       <button class="btn ghost" style="margin-top:8px" onclick="document.querySelector('#watch tbody').insertAdjacentHTML('beforeend', watchRow())">${T("s_w_add")}</button>`, "wide");
-  document.querySelectorAll("#settingsForm input, #settingsForm select, #settingsForm textarea").forEach(el => el.addEventListener("input", () => dirty = true));
+  document.querySelectorAll("#settingsForm input, #settingsForm select, #settingsForm textarea").forEach(el => { if (el.id !== "stream_test") el.addEventListener("input", () => dirty = true); });
+  val("streamTestBtn").onclick = async () => {
+    try {
+      const r = await post("/api/stream/command", {user: "you", text: val("stream_test").value});
+      val("streamTestOut").textContent = (r.answers || []).map(a => a.text).join(" | ") || "—";
+    } catch (e) { val("streamTestOut").textContent = e.message; }
+  };
+  tryJSON("/api/stream/state").then(st => { if (st) val("streamStatus").textContent = T("s_st_status", {s: st.chat_status}); });
 }
 const val = id => document.getElementById(id);
 const on = id => val(id).checked, nv = id => Number(val(id).value || 0);
@@ -545,7 +583,11 @@ val("saveBtn").onclick = async () => {
     settings: {language: val("language").value, character: val("character").value || null,
                scan_interval_sec: Math.max(1, nv("scan_min")) * 60, open_dashboard_on_start: on("open_dashboard_on_start"),
                check_updates: on("check_updates"), launch_runelite: on("launch_runelite"),
-               runelite_path: val("runelite_path").value.trim()},
+               runelite_path: val("runelite_path").value.trim(),
+               stream_enabled: on("stream_enabled"), stream_channel: val("stream_channel").value.trim().replace(/^.*twitch\.tv\//, ""),
+               stream_display_name: val("stream_display_name").value.trim(), stream_bot_name: val("stream_bot_name").value.trim(),
+               stream_bot_token: val("stream_bot_token").value.trim(), stream_kofi_url: val("stream_kofi_url").value.trim(),
+               stream_toolkit_url: val("stream_toolkit_url").value.trim()},
     autostart: on("autostart"),
     alerts: {
       ge_offers: {enabled: on("ge_enabled"), partial_milestones_pct: val("ge_miles").value.split(","), unrealistic_pct: nv("ge_stuck_pct"),

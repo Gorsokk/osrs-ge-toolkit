@@ -1,5 +1,5 @@
 """
-OSRS GE Toolkit - the desktop app (tray icon, no console window).
+OSRS Toolkit - the desktop app (tray icon, no console window).
 
 Runs in the background, next to the clock:
   - the GE scanner (flips + High Alch), every few minutes
@@ -25,7 +25,7 @@ import webbrowser
 import data
 import settings
 from i18n import t
-from paths import APP_NAME, VERSION, DATA_DIR, LOG_FILE, RESOURCE_DIR
+from paths import APP_NAME, VERSION, DATA_DIR, LOG_FILE, RESOURCE_DIR, GITHUB_REPO
 
 MUTEX_NAME = "OSRSGEToolkit"     # also used by the installer to close the app before updating
 FIRST_RUN_FLAG = DATA_DIR / "_first_run_done"
@@ -155,7 +155,7 @@ class App:
             webbrowser.open(DATA_DIR.as_uri())
 
     def open_update(self, *_):
-        webbrowser.open(self.update.get("url") or f"https://github.com/Gorsokk/osrs-ge-toolkit/releases/latest")
+        webbrowser.open(self.update.get("url") or f"https://github.com/{GITHUB_REPO}/releases/latest")
 
     def connect_claude(self, *_):
         import claude_connect
@@ -222,6 +222,11 @@ class App:
             log("no free port for the dashboard (8765-8775)")
         for target in (self.scanner_loop, self.alerts_loop, self.watcher_loop):
             threading.Thread(target=target, daemon=True, name=target.__name__).start()
+        try:
+            from stream import STREAM
+            STREAM.start()      # Twitch chat bot; idles until enabled in Settings > Stream
+        except Exception:
+            log("stream module failed to start:\n" + traceback.format_exc())
 
         first_run = not FIRST_RUN_FLAG.exists()
         if self.port and not self.background and (first_run or settings.load().get("open_dashboard_on_start")):

@@ -1,14 +1,16 @@
-; Windows installer for OSRS GE Toolkit (Inno Setup 6).
+; Windows installer for OSRS Toolkit (Inno Setup 6). Formerly "OSRS GE Toolkit".
 ; Built automatically by .github/workflows/release.yml.
 ; Local build:  iscc /DMyAppVersion=1.1.0 installer\toolkit.iss
 
 #ifndef MyAppVersion
   #define MyAppVersion "1.1.0"
 #endif
-#define MyAppName "OSRS GE Toolkit"
+#define MyAppName "OSRS Toolkit"
+; old name: install folder, exe and "Start with Windows" value keep it so updates stay seamless
+#define OldName "OSRS GE Toolkit"
 #define MyAppExe "OSRS GE Toolkit.exe"
 #define McpExe "mcp\osrs-ge-mcp.exe"
-#define MyAppURL "https://github.com/Gorsokk/osrs-ge-toolkit"
+#define MyAppURL "https://github.com/Gorsokk/osrs-toolkit"
 
 [Setup]
 AppId={{5DA572CB-7B77-4DD7-8BFB-304B6B70C849}
@@ -20,11 +22,12 @@ AppSupportURL={#MyAppURL}/issues
 AppUpdatesURL={#MyAppURL}/releases
 ; per-user install: no admin rights needed
 PrivilegesRequired=lowest
-DefaultDirName={localappdata}\Programs\{#MyAppName}
+DefaultDirName={localappdata}\Programs\{#OldName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
+UsePreviousGroup=no
 OutputDir=..\dist
-OutputBaseFilename=OSRS-GE-Toolkit-Setup-{#MyAppVersion}
+OutputBaseFilename=OSRS-Toolkit-Setup-{#MyAppVersion}
 SetupIconFile=..\assets\icon.ico
 UninstallDisplayIcon={app}\{#MyAppExe}
 Compression=lzma2
@@ -54,6 +57,11 @@ Name: "startup"; Description: "{cm:StartWithWindows}"; GroupDescription: "{cm:Ex
 [Files]
 Source: "..\dist\OSRS GE Toolkit\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[InstallDelete]
+; shortcuts from before the rename
+Type: files; Name: "{autodesktop}\{#OldName}.lnk"
+Type: filesandordirs; Name: "{userprograms}\{#OldName}"
+
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
@@ -61,7 +69,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: deskto
 
 [Registry]
 ; same value the app's "Start with Windows" switch uses
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#MyAppName}"; \
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#OldName}"; \
   ValueData: """{app}\{#MyAppExe}"" --background"; Flags: uninsdeletevalue; Tasks: startup
 
 [Run]

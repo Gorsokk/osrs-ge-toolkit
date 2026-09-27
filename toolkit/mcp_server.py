@@ -1,5 +1,5 @@
 """
-OSRS GE Toolkit - Claude connector (MCP server over stdio).
+OSRS Toolkit - Claude connector (MCP server over stdio).
 
 Gives Claude read-only tools over the player's RuneLite exports (Character Export +
 Position Exporter plugins) and live OSRS Wiki prices. Claude can read and advise;
@@ -25,7 +25,7 @@ from paths import APP_NAME, VERSION, DATA_DIR, RUNELITE_ROOT  # noqa: E402
 
 SUPPORTED_PROTOCOLS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]
 
-INSTRUCTIONS = """OSRS GE Toolkit gives you read-only access to the user's Old School RuneScape character \
+INSTRUCTIONS = """OSRS Toolkit gives you read-only access to the user's Old School RuneScape character \
 (exported locally by the RuneLite plugins "Character Export" and "Position Exporter") and to live \
 Grand Exchange prices from the OSRS Wiki.
 
@@ -36,18 +36,24 @@ Grand Exchange prices from the OSRS Wiki.
 identify the location; y > 9000 usually means an underground/dungeon area.
 - You can advise, plan and explain. Never help automate gameplay (bots, macros, input automation): \
 it breaks Jagex's rules and gets accounts banned.
-- Answer in the user's language."""
+- Answer in the user's language.
+- Stream co-host (stream_* tools): when the user is live on Twitch, viewers ask questions with !ask. \
+Read them with stream_get_chat, answer with stream_say (short: 1-2 sentences, under 400 characters, \
+friendly, in the viewer's language, no links you are not sure of). What you send is shown on stream \
+and posted in Twitch chat, so never include private info (bank details, the user's real name, files). \
+Skip trolling or rule-breaking questions with stream_skip_question. Only switch scenes \
+(stream_show_scene) when the user asks you to."""
 
 CHAR_ARG = {"character": {"type": "string",
                           "description": "Character name. Optional: defaults to the most recently played character."}}
 
 
-def tool(name, description, props=None, required=None):
+def tool(name, description, props=None, required=None, read_only=True):
     schema = {"type": "object", "properties": dict(props or {}), "additionalProperties": False}
     if required:
         schema["required"] = required
     return {"name": name, "description": description, "inputSchema": schema,
-            "annotations": {"readOnlyHint": True, "openWorldHint": False}}
+            "annotations": {"readOnlyHint": read_only, "openWorldHint": not read_only}}
 
 
 TOOLS = [
@@ -87,6 +93,30 @@ TOOLS = [
          {"item": {"type": "string", "description": "Item name (fuzzy) or numeric item id."},
           "history_days": {"type": "integer", "enum": [0, 7, 30], "description": "Default 0 (no history)."}},
          ["item"]),
+    tool("stream_get_chat",
+         "Stream co-host: pending !ask questions from Twitch viewers (id, user, text), recently answered "
+         "ones, and the last chat messages. Also says whether the chat bot is connected and can reply.",
+         {"limit": {"type": "integer", "minimum": 1, "maximum": 60, "description": "Chat lines to return. Default 30."}}),
+    tool("stream_say",
+         "Stream co-host: show a message from Claude on the stream overlay and post it in Twitch chat. "
+         "Pass question_id to answer a viewer's !ask question (it is then marked answered and the viewer is tagged). "
+         "Keep it short (max ~400 characters). Visible to everyone watching.",
+         {"text": {"type": "string", "description": "What to say (1-2 sentences)."},
+          "question_id": {"type": "integer", "description": "Id of the !ask question being answered (optional)."},
+          "to_chat": {"type": "boolean", "description": "Also post in Twitch chat (needs a bot token). Default true."}},
+         ["text"], read_only=False),
+    tool("stream_skip_question",
+         "Stream co-host: drop a pending !ask question without answering (spam, off-topic, rule-breaking).",
+         {"question_id": {"type": "integer"}}, ["question_id"], read_only=False),
+    tool("stream_show_scene",
+         "Stream co-host: switch the live scene in Meld Studio (through the overlay browser source). "
+         "Use the exact name of one of the scenes listed by stream_status (e.g. Starting, Game, BRB, Ending). "
+         "Only when the user asks.",
+         {"scene": {"type": "string", "description": "Meld Studio scene name (case-insensitive)."}},
+         ["scene"], read_only=False),
+    tool("stream_status",
+         "Stream co-host: Twitch chat connection, Meld Studio link (scenes, current scene, live or not), "
+         "what the overlay shows (bond progress, top flip, recent alerts, last messages).", {}),
     tool("get_recent_alerts",
          "Alerts the toolkit raised recently (GE offers filled or stuck, flips, price crashes/spikes, "
          "bond price, official news, cheap skilling materials).",
@@ -111,7 +141,7 @@ PROMPTS = [
 ]
 
 PROMPT_TEXT = {
-    "ge_checkup": "Use the OSRS GE Toolkit tools (get_ge_offers, get_market_opportunities, get_bank) to review my "
+    "ge_checkup": "Use the OSRS Toolkit tools (get_ge_offers, get_market_opportunities, get_bank) to review my "
                   "Grand Exchange. For each active offer, say if the price is right and give an exact new price "
                   "if not. Then tell me what to put in my free slots with my current cash (exact item, quantity, "
                   "buy and sell prices, profit after tax), and any risks.",
@@ -198,7 +228,7 @@ def t_get_status(args):
         out["problems"].append("No live position / GE offers: install the 'Position Exporter' plugin from the "
                                "RuneLite Plugin Hub.")
     if not f["market.json"]["present"]:
-        out["problems"].append("No flip/alch scan yet: start OSRS GE Toolkit (desktop icon). "
+        out["problems"].append("No flip/alch scan yet: start OSRS Toolkit (desktop icon). "
                                "get_market_opportunities can also run a scan on demand.")
     _, bank_age = read_export(folder, "bank.json")
     if bank_age and bank_age > 60:
@@ -418,7 +448,64 @@ def t_get_recent_alerts(args):
     return {"character": name, "hours": hours, "count": len(rows), "alerts": rows[:60]}
 
 
+# ----------------------------------------------------------------- stream ---
+def _app(method, path, body=None):
+    """Call the running desktop app's local server (the stream module lives there)."""
+    import urllib.request
+    ports = []
+    try:
+        ports.append(int((DATA_DIR / "port.txt").read_text().strip()))
+    except Exception:
+        pass
+    ports += [p for p in range(8765, 8776) if p not in ports]
+    last = None
+    for port in ports[:4]:
+        req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", method=method,
+                                     data=json.dumps(body or {}).encode("utf-8") if method == "POST" else None,
+                                     headers={"Content-Type": "application/json", "X-Toolkit": "1",
+                                              "Host": f"localhost:{port}"})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except Exception as e:
+            last = e
+    raise ToolError(f"The {APP_NAME} app is not running (start it from the desktop icon): {last}")
+
+
+def t_stream_get_chat(args):
+    out = _app("GET", "/api/stream/chat")
+    out["recent_chat"] = out.get("recent_chat", [])[-int(args.get("limit") or 30):]
+    return out
+
+
+def t_stream_say(args):
+    return _app("POST", "/api/stream/say", {"text": args.get("text", ""), "question_id": args.get("question_id"),
+                                            "to_chat": args.get("to_chat", True)})
+
+
+def t_stream_skip_question(args):
+    return _app("POST", "/api/stream/skip", {"question_id": args.get("question_id")})
+
+
+def t_stream_show_scene(args):
+    out = _app("POST", "/api/stream/scene", {"scene": args.get("scene", "")})
+    meld = out.get("meld") or {}
+    if not meld.get("online"):
+        out["warning"] = ("The overlay browser source is not open in Meld Studio (or Meld's API is off), "
+                          "so the scene will switch as soon as it is.")
+    elif meld.get("scenes") and args.get("scene", "").lower() not in [s.lower() for s in meld["scenes"]]:
+        out["warning"] = f"No Meld scene named '{args.get('scene')}'. Scenes: {', '.join(meld['scenes'])}"
+    return out
+
+
+def t_stream_status(args):
+    return _app("GET", "/api/stream/state")
+
+
 HANDLERS = {
+    "stream_get_chat": t_stream_get_chat, "stream_say": t_stream_say,
+    "stream_skip_question": t_stream_skip_question, "stream_show_scene": t_stream_show_scene,
+    "stream_status": t_stream_status,
     "get_status": t_get_status, "get_character": t_get_character, "get_position": t_get_position,
     "get_inventory": t_get_inventory, "get_bank": t_get_bank, "get_ge_offers": t_get_ge_offers,
     "get_market_opportunities": t_get_market_opportunities, "get_item_price": t_get_item_price,

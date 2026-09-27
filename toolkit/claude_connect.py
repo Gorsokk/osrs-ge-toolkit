@@ -1,4 +1,4 @@
-"""One-click connection between OSRS GE Toolkit and the Claude desktop app.
+"""One-click connection between OSRS Toolkit and the Claude desktop app.
 
 Adds (or removes) an "osrs-ge-toolkit" entry in Claude Desktop's local connector
 config (claude_desktop_config.json). Everything else in that file is kept as-is,

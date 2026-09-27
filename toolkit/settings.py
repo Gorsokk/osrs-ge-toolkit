@@ -35,6 +35,14 @@ DEFAULTS = {
     "check_updates": True,
     "launch_runelite": False,   # open RuneLite when the toolkit is started by hand (not at Windows start)
     "runelite_path": "",        # "" = find RuneLite / Jagex Launcher automatically; or a program / .bat
+    # --- Stream module (stream.py)
+    "stream_enabled": False,    # connect to Twitch chat and answer !commands
+    "stream_channel": "",       # Twitch channel to join, e.g. "blodvis"
+    "stream_bot_name": "",      # account that posts the replies ("" = read-only, answers on the overlay only)
+    "stream_bot_token": "",     # chat token of that account (oauth:...)
+    "stream_display_name": "",  # name used in !bond ("" = character name)
+    "stream_toolkit_url": "",   # link for !toolkit ("" = this project's GitHub page)
+    "stream_kofi_url": "",      # link for !kofi (Ko-fi, GitHub Sponsors...)
 }
 
 

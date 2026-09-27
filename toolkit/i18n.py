@@ -80,14 +80,14 @@ STRINGS = {
     "tray_folder": {"en": "Open settings folder", "fr": "Ouvrir le dossier de configuration"},
     "tray_update": {"en": "Update available: {version}", "fr": "Mise à jour disponible : {version}"},
     "tray_quit": {"en": "Quit", "fr": "Quitter"},
-    "tray_tip": {"en": "OSRS GE Toolkit – {status}", "fr": "OSRS GE Toolkit – {status}"},
+    "tray_tip": {"en": "OSRS Toolkit – {status}", "fr": "OSRS Toolkit – {status}"},
     "status_waiting": {"en": "waiting for game data", "fr": "en attente des données du jeu"},
     "status_running": {"en": "running ({name})", "fr": "actif ({name})"},
-    "started_title": {"en": "OSRS GE Toolkit is running", "fr": "OSRS GE Toolkit est lancé"},
+    "started_title": {"en": "OSRS Toolkit is running", "fr": "OSRS Toolkit est lancé"},
     "started_body": {"en": "It lives in the tray (bottom-right, near the clock). Right-click the icon for the menu.",
                      "fr": "Il est dans la zone de notification (en bas à droite, près de l'horloge). "
                            "Clic droit sur l'icône pour le menu."},
-    "setup_title": {"en": "OSRS GE Toolkit – one-time setup", "fr": "OSRS GE Toolkit – installation"},
+    "setup_title": {"en": "OSRS Toolkit – one-time setup", "fr": "OSRS Toolkit – installation"},
     "setup_body": {"en": "No game data yet. In RuneLite: wrench icon -> Plugin Hub -> install \"Character Export\" "
                          "and \"Position Exporter\", then log in and open your bank once. The toolkit will pick it up "
                          "automatically.",
@@ -100,7 +100,7 @@ STRINGS = {
                          "fr": "Redémarre l'application Claude, puis pose-lui une question sur ton compte "
                                "(« comment va mon GE ? »)."},
     "claude_fail": {"en": "Could not connect to Claude: {error}", "fr": "Impossible de connecter Claude : {error}"},
-    "already_running": {"en": "OSRS GE Toolkit is already running.", "fr": "OSRS GE Toolkit est déjà lancé."},
+    "already_running": {"en": "OSRS Toolkit is already running.", "fr": "OSRS Toolkit est déjà lancé."},
 }
 
 _cache = {"lang": None, "at": 0.0}
