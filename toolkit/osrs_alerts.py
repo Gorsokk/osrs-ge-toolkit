@@ -353,6 +353,7 @@ class Alerts:
                 self._process_offers(ge)
         if with_watch:
             self._check_watch()
+            self._reconcile_positions()
             self._check_positions()
 
     def _process_offers(self, ge):
@@ -416,6 +417,7 @@ class Alerts:
         pos = self.state["positions"].setdefault(name, {"item_id": item_id, "qty": 0, "cost_total": 0})
         pos["qty"] += dq
         pos["cost_total"] += dspent
+        pos["updated"] = time.time()
         avg = pos["cost_total"] / pos["qty"]
         be = breakeven(avg)
         h1 = self.h1.get(str(item_id)) or {}
@@ -436,10 +438,74 @@ class Alerts:
             used = min(dq, pos["qty"])
             pos["cost_total"] -= cost * used
             pos["qty"] -= used
+            pos["updated"] = time.time()
             if pos["qty"] <= 0:
                 self.state["positions"].pop(name, None)
         day = sum(r["profit"] for r in self.state["realized"] if time.time() - r["ts"] < 86400)
         return t("profit_line", profit=gp(profit), day=gp(day))
+
+    def _holdings(self):
+        """What the player really has, by item name (lower case): bank + inventory + equipment
+        + items still sitting in GE slots (bought and not collected yet, or still offered for sale).
+        Returns (holdings, bank_mtime), or (None, None) when the bank export is missing.
+        Names rather than ids, so noted items count too."""
+        if not self.export_dir:
+            return None, None
+        bank_path = self.export_dir / "bank.json"
+        try:
+            bank_mtime = bank_path.stat().st_mtime
+        except OSError:
+            return None, None
+        held = {}
+
+        def add(name, qty):
+            if name and qty:
+                key = name.strip().lower()
+                held[key] = held.get(key, 0) + int(qty)
+
+        for fn in ("bank.json", "inventory.json", "equipment.json"):
+            for it in (load_json(self.export_dir / fn, {}) or {}).get("items", []) or []:
+                add(it.get("name"), it.get("quantity", 1))
+        ge = load_json(self.export_dir / "ge_offers.json", {}) or {}
+        for sl in ge.get("slots", []) or []:
+            if sl.get("state") == "EMPTY":
+                continue
+            filled, total = sl.get("quantity_filled", 0) or 0, sl.get("quantity_total", 0) or 0
+            if sl.get("type") == "BUY":
+                add(sl.get("item_name"), filled)            # in the collection box until collected
+            else:
+                add(sl.get("item_name"), max(0, total - filled))   # still up for sale
+        return held, bank_mtime
+
+    def _reconcile_positions(self):
+        """Fixes positions that no longer match reality, e.g. items sold on the GE while the toolkit
+        was closed (the slot was collected before we could see the sale), used, dropped or traded.
+        Only lowers a position, and only when the bank export is newer than the last buy/sell we
+        counted for that item (an old bank export could simply not show recent purchases yet)."""
+        held, bank_mtime = self._holdings()
+        if held is None:
+            return
+        changed = False
+        for name, pos in list(self.state["positions"].items()):
+            if pos.get("qty", 0) <= 0:
+                self.state["positions"].pop(name, None)
+                changed = True
+                continue
+            if bank_mtime < pos.get("updated", 0):
+                continue
+            have = held.get(name.strip().lower(), 0)
+            if have >= pos["qty"]:
+                continue
+            if have <= 0:
+                log(f"Positions: {name} x{pos['qty']} no longer in your bank/inventory/GE: removed.")
+                self.state["positions"].pop(name, None)
+            else:
+                log(f"Positions: {name} {pos['qty']} -> {have} (what you really have).")
+                pos["cost_total"] = pos["cost_total"] / pos["qty"] * have
+                pos["qty"] = have
+            changed = True
+        if changed:
+            save_json(STATE_FILE, self.state)
 
     def _check_positions(self):
         """Alerte quand une position achetee peut etre revendue avec profit."""
