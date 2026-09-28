@@ -44,6 +44,17 @@ Set it up in the dashboard → **Settings → Stream**: channel name, optional b
 
 For scene switching in **Meld Studio**, turn on its local API (Settings, port 13376) and put the overlay in every scene.
 
+## Remote bridge: Claude voice mode, phone and claude.ai
+
+Claude's voice mode, the mobile app and claude.ai only reach connectors on the internet. The optional **remote bridge** shares the toolkit's Claude tools through a free [ngrok](https://ngrok.com) tunnel, so you can talk to Claude while you play ("answer the chat", "switch to BRB", "best flip right now?").
+
+1. Create a free ngrok account and claim your free static domain (Dashboard → Domains).
+2. Install ngrok (`winget install ngrok.ngrok`) and run `ngrok config add-authtoken <your token>` once.
+3. Dashboard → **Settings → Remote bridge**: paste the domain, enable it, save. The toolkit starts ngrok for you.
+4. In Claude: **Settings → Connectors → Add custom connector**, paste the connector URL shown in the dashboard.
+
+The URL contains a secret: anyone who has it can read your character data and post on your stream, so keep it private ("New secret address" changes it). Nothing else of the toolkit is reachable from the internet.
+
 ## Install (Windows 10/11)
 
 1. **Download** `OSRS-Toolkit-Setup-x.y.z.exe` from [Releases](https://github.com/Gorsokk/osrs-toolkit/releases/latest) and run it. No admin rights and no Python needed.

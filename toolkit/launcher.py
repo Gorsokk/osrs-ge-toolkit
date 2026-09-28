@@ -225,6 +225,8 @@ class App:
         try:
             from stream import STREAM
             STREAM.start()      # Twitch chat bot; idles until enabled in Settings > Stream
+            from bridge import BRIDGE
+            BRIDGE.start(self.port)   # remote Claude connector (ngrok); idles until enabled
         except Exception:
             log("stream module failed to start:\n" + traceback.format_exc())
 

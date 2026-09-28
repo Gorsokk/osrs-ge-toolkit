@@ -215,6 +215,12 @@ const I18N = {
     s_st_status: "Chat: {s}", s_st_src: "Browser sources (1920×1080) — add them in Meld Studio or OBS:",
     s_st_src_d: "Put the overlay in every scene so Claude can switch scenes. In Meld: Settings → turn on the local API (port 13376).",
     s_st_test: "Test a command", s_st_run: "Run",
+    s_br: "Remote bridge (Claude voice mode, phone, claude.ai)", s_br_d: "Claude's voice mode and mobile app only reach connectors on the internet. This shares the toolkit's Claude tools through a free ngrok tunnel, protected by a secret address.",
+    s_br_on: "Enable the remote bridge", s_br_dom: "Your ngrok address", s_br_dom_s: "free static domain from dashboard.ngrok.com → Domains, e.g. name.ngrok-free.app",
+    s_br_ngrok: "Start ngrok with the toolkit", s_br_ngrok_s: "off = you run your own tunnel to this port",
+    s_br_url: "Connector URL — in Claude: Settings → Connectors → Add custom connector (keep it private):", s_br_status: "Bridge: {s}",
+    s_br_new: "New secret address", s_br_copy: "Copy", s_br_nourl: "Enter your ngrok address and save.",
+    s_br_steps: "One-time setup: 1) free account on ngrok.com, claim your free static domain  2) install ngrok (winget install ngrok.ngrok) and run: ngrok config add-authtoken YOUR_TOKEN  3) paste the domain here, enable, save  4) add the URL above as a custom connector in Claude, then use voice mode.",
     s_ge: "GE offer alerts", s_ge_d: "Pop-ups when your offers fill, or look stuck.",
     s_on: "Enabled", s_miles: "Notify at (% filled)", s_miles_s: "comma-separated, completion is always notified",
     s_stuck_pct: "\"Stuck\" if price is off the market by (%)", s_stuck_min: "…for at least (minutes)",
@@ -290,6 +296,12 @@ const I18N = {
     s_st_status: "Chat : {s}", s_st_src: "Sources navigateur (1920×1080) — ajoute-les dans Meld Studio ou OBS :",
     s_st_src_d: "Mets l'overlay dans chaque scène pour que Claude puisse changer de scène. Dans Meld : Paramètres → active l'API locale (port 13376).",
     s_st_test: "Tester une commande", s_st_run: "Lancer",
+    s_br: "Pont distant (mode vocal Claude, téléphone, claude.ai)", s_br_d: "Le mode vocal et l'app mobile de Claude n'atteignent que les connecteurs sur internet. Ceci partage les outils Claude du toolkit par un tunnel ngrok gratuit, protégé par une adresse secrète.",
+    s_br_on: "Activer le pont distant", s_br_dom: "Ton adresse ngrok", s_br_dom_s: "domaine fixe gratuit sur dashboard.ngrok.com → Domains, ex. nom.ngrok-free.app",
+    s_br_ngrok: "Lancer ngrok avec le toolkit", s_br_ngrok_s: "désactivé = tu utilises ton propre tunnel vers ce port",
+    s_br_url: "URL du connecteur — dans Claude : Paramètres → Connecteurs → Ajouter un connecteur personnalisé (garde-la privée) :", s_br_status: "Pont : {s}",
+    s_br_new: "Nouvelle adresse secrète", s_br_copy: "Copier", s_br_nourl: "Entre ton adresse ngrok et enregistre.",
+    s_br_steps: "Installation unique : 1) compte gratuit sur ngrok.com, réclame ton domaine fixe gratuit  2) installe ngrok (winget install ngrok.ngrok) puis lance : ngrok config add-authtoken TON_JETON  3) colle le domaine ici, active, enregistre  4) ajoute l'URL ci-dessus comme connecteur personnalisé dans Claude, puis utilise le mode vocal.",
     s_ge: "Alertes d'offres GE", s_ge_d: "Pop-ups quand tes offres se remplissent ou semblent bloquées.",
     s_on: "Activé", s_miles: "Prévenir à (% rempli)", s_miles_s: "séparés par des virgules, la fin est toujours signalée",
     s_stuck_pct: "« Bloquée » si le prix s'écarte du marché de (%)", s_stuck_min: "…pendant au moins (minutes)",
@@ -543,6 +555,16 @@ async function loadSettings() {
        <div style="display:flex;gap:8px;margin-top:6px"><input type="text" id="stream_test" value="!bond" style="flex:1">
          <button class="btn ghost" id="streamTestBtn" type="button">${T("s_st_run")}</button></div>
        <p class="muted" id="streamTestOut"></p>`, "wide") +
+    panel("s_br", "s_br_d",
+      row("s_br_on", sw("bridge_enabled", s.bridge_enabled)) +
+      row("s_br_dom", `<input type="text" id="bridge_domain" value="${esc(s.bridge_domain || "")}" placeholder="name.ngrok-free.app" style="width:240px">`, "s_br_dom_s") +
+      row("s_br_ngrok", sw("bridge_run_ngrok", s.bridge_run_ngrok), "s_br_ngrok_s") +
+      `<label style="display:block;margin-top:10px">${T("s_br_url")}</label>
+       <div style="display:flex;gap:8px;margin-top:6px;align-items:center"><code id="bridgeUrl" style="user-select:all;word-break:break-all;flex:1">…</code>
+         <button class="btn ghost" id="bridgeCopy" type="button">${T("s_br_copy")}</button></div>
+       <p class="muted" id="bridgeStatus"></p>
+       <button class="btn ghost" id="bridgeNew" type="button">${T("s_br_new")}</button>
+       <p class="muted" style="margin-top:10px">${T("s_br_steps")}</p>`, "wide") +
     panel("s_ge", "s_ge_d",
       row("s_on", sw("ge_enabled", g.enabled)) +
       row("s_miles", `<input type="text" id="ge_miles" value="${(g.partial_milestones_pct || []).join(", ")}" style="width:110px">`, "s_miles_s") +
@@ -570,6 +592,14 @@ async function loadSettings() {
     } catch (e) { val("streamTestOut").textContent = e.message; }
   };
   tryJSON("/api/stream/state").then(st => { if (st) val("streamStatus").textContent = T("s_st_status", {s: st.chat_status}); });
+  const showBridge = b => {
+    if (!b) return;
+    val("bridgeUrl").textContent = b.url || T("s_br_nourl");
+    val("bridgeStatus").textContent = T("s_br_status", {s: b.status}) + (b.error ? " — " + b.error : "");
+  };
+  tryJSON("/api/bridge").then(showBridge);
+  val("bridgeCopy").onclick = () => { navigator.clipboard.writeText(val("bridgeUrl").textContent); toast(T("copied")); };
+  val("bridgeNew").onclick = async () => showBridge(await post("/api/bridge/new-secret", {}));
 }
 const val = id => document.getElementById(id);
 const on = id => val(id).checked, nv = id => Number(val(id).value || 0);
@@ -587,7 +617,9 @@ val("saveBtn").onclick = async () => {
                stream_enabled: on("stream_enabled"), stream_channel: val("stream_channel").value.trim().replace(/^.*twitch\.tv\//, ""),
                stream_display_name: val("stream_display_name").value.trim(), stream_bot_name: val("stream_bot_name").value.trim(),
                stream_bot_token: val("stream_bot_token").value.trim(), stream_kofi_url: val("stream_kofi_url").value.trim(),
-               stream_toolkit_url: val("stream_toolkit_url").value.trim()},
+               stream_toolkit_url: val("stream_toolkit_url").value.trim(),
+               bridge_enabled: on("bridge_enabled"), bridge_run_ngrok: on("bridge_run_ngrok"),
+               bridge_domain: val("bridge_domain").value.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "")},
     autostart: on("autostart"),
     alerts: {
       ge_offers: {enabled: on("ge_enabled"), partial_milestones_pct: val("ge_miles").value.split(","), unrealistic_pct: nv("ge_stuck_pct"),

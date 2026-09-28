@@ -171,7 +171,45 @@ class Handler(http.server.BaseHTTPRequestHandler):
         host = (self.headers.get("Host") or "").split(":")[0]
         return host in ("localhost", "127.0.0.1")
 
+    # --- remote bridge: the Claude connector over HTTPS (bridge.py). Reached through the
+    # tunnel, so the Host header is the public domain: the secret in the path is the key.
+    def _mcp(self, path):
+        import hmac
+        s = settings.load()
+        secret = path[len("/mcp/"):].strip("/")
+        if not s.get("bridge_enabled") or not hmac.compare_digest(secret, s["bridge_secret"]):
+            return self._send(404, {"error": "not found"})
+        if self.command != "POST":
+            self.send_response(405)
+            self.send_header("Allow", "POST")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            if length > 1_000_000:
+                return self._send(413, {"error": "too large"})
+            payload = json.loads(self.rfile.read(length) or b"null")
+        except Exception:
+            return self._send(400, {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}})
+        import mcp_server
+        out = mcp_server.handle_http(payload)
+        if out is None:
+            self.send_response(202)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        return self._send(200, out)
+
+    def do_DELETE(self):
+        path = urlparse(self.path).path
+        if path.startswith("/mcp/"):
+            return self._mcp(path)
+        return self._send(405, {"error": "method not allowed"})
+
     def do_GET(self):
+        if urlparse(self.path).path.startswith("/mcp/"):
+            return self._mcp(urlparse(self.path).path)
         if not self._local_host():
             return self._send(403, {"error": "forbidden"})
         path = urlparse(self.path).path
@@ -189,6 +227,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._send(404, {"error": "unknown page"})
             html = (RESOURCE_DIR / "web" / "stream" / f"{page}.html").read_bytes()
             return self._send(200, html, "text/html; charset=utf-8")
+        if path == "/api/bridge":
+            from bridge import BRIDGE
+            return self._send(200, BRIDGE.info())
         if path == "/api/stream/state":
             return self._send(200, STREAM.state())
         if path == "/api/stream/chat":
@@ -213,6 +254,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return self._send(404, {"error": "not found"})
 
     def do_POST(self):
+        if urlparse(self.path).path.startswith("/mcp/"):
+            return self._mcp(urlparse(self.path).path)
         # custom header => browsers block cross-site requests (no CORS allowed here)
         if not self._local_host() or self.headers.get("X-Toolkit") != "1":
             return self._send(403, {"error": "forbidden"})
@@ -241,6 +284,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if path == "/api/runelite":
                 ok, msg = runelite.launch(settings.load().get("runelite_path"))
                 return self._send(200, {"ok": ok, "message": msg})
+            if path == "/api/bridge/new-secret":
+                import secrets
+                from bridge import BRIDGE
+                cur = settings.load()
+                settings._write(dict(cur, bridge_secret=secrets.token_urlsafe(24)))
+                return self._send(200, BRIDGE.info())
             if path.startswith("/api/stream/"):
                 return self._send(*stream_post(path[len("/api/stream/"):], body))
             if path == "/api/check-update":

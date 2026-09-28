@@ -15,9 +15,14 @@ import sys
 import time
 import traceback
 
-# stdout is the protocol channel: keep a private handle and send every stray print to stderr
+import threading
+
+# stdio mode: stdout is the protocol channel (main() sends every stray print to stderr).
+# HTTP mode (the remote "bridge" served by the desktop app, see handle_http): replies are collected per thread.
 _PROTO_OUT = sys.stdout
-sys.stdout = sys.stderr
+_HTTP = threading.local()
+if __name__ == "__main__":
+    sys.stdout = sys.stderr
 
 import data  # noqa: E402
 from data import PRICES, read_export, resolve_character, human_age, net_sell, tax  # noqa: E402
@@ -42,7 +47,9 @@ Read them with stream_get_chat, answer with stream_say (short: 1-2 sentences, un
 friendly, in the viewer's language, no links you are not sure of). What you send is shown on stream \
 and posted in Twitch chat, so never include private info (bank details, the user's real name, files). \
 Skip trolling or rule-breaking questions with stream_skip_question. Only switch scenes \
-(stream_show_scene) when the user asks you to."""
+(stream_show_scene) when the user asks you to.
+- Voice mode: the user is usually playing while talking to you. Keep spoken answers short, act \
+on requests right away (e.g. "answer the chat" = stream_get_chat then stream_say for each question)."""
 
 CHAR_ARG = {"character": {"type": "string",
                           "description": "Character name. Optional: defaults to the most recently played character."}}
@@ -515,8 +522,35 @@ HANDLERS = {
 
 # ----------------------------------------------------------------- protocol ---
 def send(msg):
+    box = getattr(_HTTP, "replies", None)
+    if box is not None:
+        box.append(msg)
+        return
     _PROTO_OUT.write(json.dumps(msg, ensure_ascii=False, separators=(",", ":")) + "\n")
     _PROTO_OUT.flush()
+
+
+def handle_http(payload):
+    """Streamable-HTTP transport (JSON responses): one JSON-RPC message or a batch in, the replies out.
+    Returns None when there is nothing to answer (notifications only)."""
+    _HTTP.replies = []
+    try:
+        msgs = payload if isinstance(payload, list) else [payload]
+        for m in msgs:
+            if not isinstance(m, dict):
+                continue
+            try:
+                handle(m)
+            except Exception as e:
+                traceback.print_exc(file=sys.stderr)
+                if m.get("id") is not None:
+                    error(m.get("id"), -32603, str(e))
+        out = _HTTP.replies
+    finally:
+        _HTTP.replies = None
+    if not out:
+        return None
+    return out if isinstance(payload, list) else out[0]
 
 
 def result(rid, res):

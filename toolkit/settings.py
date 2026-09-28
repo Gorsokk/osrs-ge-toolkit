@@ -43,6 +43,11 @@ DEFAULTS = {
     "stream_display_name": "",  # name used in !bond ("" = character name)
     "stream_toolkit_url": "",   # link for !toolkit ("" = this project's GitHub page)
     "stream_kofi_url": "",      # link for !kofi (Ko-fi, GitHub Sponsors...)
+    # --- Remote bridge (bridge.py): the Claude connector over HTTPS, for Claude voice mode / mobile / web
+    "bridge_enabled": False,
+    "bridge_domain": "",        # public address of the tunnel, e.g. "gorsok.ngrok-free.app"
+    "bridge_run_ngrok": True,   # start ngrok automatically with the toolkit
+    "bridge_secret": "",        # random, part of the connector URL (generated on first use)
 }
 
 
@@ -57,15 +62,23 @@ def load():
     out.update({k: v for k, v in user.items() if k in DEFAULTS})
     if out["language"] not in ("en", "fr"):
         out["language"] = _default_language()
+    if not out["bridge_secret"]:
+        import secrets
+        out["bridge_secret"] = secrets.token_urlsafe(24)
+        _write(dict(user, bridge_secret=out["bridge_secret"]))
     return out
+
+
+def _write(values):
+    with _lock:
+        tmp = SETTINGS_FILE.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(values, f, ensure_ascii=False, indent=2)
+        tmp.replace(SETTINGS_FILE)
 
 
 def save(changes):
     current = load()
-    current.update({k: v for k, v in changes.items() if k in DEFAULTS})
-    with _lock:
-        tmp = SETTINGS_FILE.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(current, f, ensure_ascii=False, indent=2)
-        tmp.replace(SETTINGS_FILE)
+    current.update({k: v for k, v in changes.items() if k in DEFAULTS and k != "bridge_secret"})
+    _write(current)
     return current
