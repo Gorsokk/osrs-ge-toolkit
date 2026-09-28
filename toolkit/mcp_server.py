@@ -124,6 +124,14 @@ TOOLS = [
     tool("stream_status",
          "Stream co-host: Twitch chat connection, Meld Studio link (scenes, current scene, live or not), "
          "what the overlay shows (bond progress, top flip, recent alerts, last messages).", {}),
+    tool("get_income",
+         "Income per PLAYED hour (logged-in time only): wealth change (bank + inventory + equipment + open "
+         "GE offers, at live prices) divided by hours actually played, plus realized GE flip profit. "
+         "The toolkit records a snapshot every minute while the game is logged in. Income counts once it "
+         "lands in the bank or inventory; read the notes before quoting a number.",
+         {**CHAR_ARG,
+          "period": {"type": "string", "enum": ["session", "today", "24h", "7d", "30d"],
+                     "description": "session = since the last log-in. Default 'today'."}}),
     tool("get_recent_alerts",
          "Alerts the toolkit raised recently (GE offers filled or stuck, flips, price crashes/spikes, "
          "bond price, official news, cheap skilling materials).",
@@ -432,6 +440,12 @@ def t_get_item_price(args):
     return out
 
 
+def t_get_income(args):
+    import income
+    name, _folder = _char(args)
+    return income.summary(name, args.get("period") or "today")
+
+
 def t_get_recent_alerts(args):
     name, folder = _char(args)
     hours = float(args.get("hours") or 24)
@@ -517,7 +531,7 @@ HANDLERS = {
     "get_status": t_get_status, "get_character": t_get_character, "get_position": t_get_position,
     "get_inventory": t_get_inventory, "get_bank": t_get_bank, "get_ge_offers": t_get_ge_offers,
     "get_market_opportunities": t_get_market_opportunities, "get_item_price": t_get_item_price,
-    "get_recent_alerts": t_get_recent_alerts,
+    "get_recent_alerts": t_get_recent_alerts, "get_income": t_get_income,
 }
 
 

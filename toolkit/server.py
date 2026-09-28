@@ -3,6 +3,7 @@
 - /                      the dashboard (web/dashboard.html)
 - /data/<file>.json      the selected character's exports (read-only, whitelisted)
 - /api/state             app status: version, character, problems, Claude, updates
+- /api/income?period=    gp per played hour (session / today / 24h / 7d / 30d)
 - /api/settings          GET / POST: general settings + alert settings
 - /api/claude            POST {"action": "connect" | "disconnect"}
 - /api/runelite          POST: open RuneLite (automatic or the program picked in Settings)
@@ -17,6 +18,7 @@ import copy
 import http.server
 import json
 import threading
+import time
 from urllib.parse import urlparse
 
 import autostart
@@ -34,6 +36,8 @@ DATA_FILES = set(data.EXPORT_FILES) | {"alerts.jsonl"}
 
 
 # ------------------------------------------------------------ alert config ---
+LAST_REMOTE_CALL = 0.0   # last request through the remote bridge (time.time())
+
 def load_alerts_config():
     import osrs_alerts
     return osrs_alerts.load_config()
@@ -193,6 +197,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception:
             return self._send(400, {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}})
         import mcp_server
+        global LAST_REMOTE_CALL
+        LAST_REMOTE_CALL = time.time()     # auto-update waits while Claude (voice) is using the bridge
         out = mcp_server.handle_http(payload)
         if out is None:
             self.send_response(202)
@@ -238,6 +244,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send(200, {"app": "osrs-ge-toolkit", "version": VERSION})
         if path == "/api/state":
             return self._send(200, app_state())
+        if path == "/api/income":
+            import income
+            from urllib.parse import parse_qs
+            period = (parse_qs(urlparse(self.path).query).get("period") or ["today"])[0]
+            name, _ = data.resolve_character(None)
+            return self._send(200, income.summary(name, period) if name else {"note": "no character yet"})
         if path == "/api/settings":
             return self._send(200, {"settings": settings.load(), "alerts": load_alerts_config(),
                                     "autostart": autostart.is_enabled()})

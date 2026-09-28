@@ -167,7 +167,8 @@ const I18N = {
   en: {
     tab_overview: "Overview", tab_market: "Market", tab_progress: "Progress", tab_claude: "Claude", tab_settings: "Settings",
     loading: "Loading…", char: "Character", mode: "Mode", members: "members", f2p: "free-to-play", scanned: "Scanned",
-    cash: "Free cash", cash_hint: "bank + inventory", locked: "Locked in GE offers", slots: "Free GE slots",
+    cash: "Free cash", cash_hint: "bank + inventory",
+    income: "Income / played hour", income_hint: "today · {h} h played", income_flips: "flips {p}", income_wait: "starts recording while you play", locked: "Locked in GE offers", slots: "Free GE slots",
     budget: "Budget / free slot", magic: "Magic", position: "Position", bank_age: "bank {age}",
     ge_title: "My GE offers", ge_missing: "No GE data yet: install the \"Position Exporter\" plugin from the RuneLite Plugin Hub.",
     updated: "updated {age}", slot: "Slot", item: "Item", offer: "Offer price", filled: "Filled", avg_real: "Avg paid/received",
@@ -204,6 +205,7 @@ const I18N = {
     s_general: "General", s_general_d: "Language, character and app behaviour.",
     s_lang: "Language", s_char: "Character", s_char_auto: "Most recently played", s_scan: "Scan every (minutes)",
     s_open: "Open this dashboard when the app starts", s_autostart: "Start with Windows", s_updates: "Check for updates",
+    s_autoupd: "Install updates automatically", s_autoupd_s: "Silent install, only when you haven't played, streamed or used Claude voice for 10 minutes. The app restarts on its own.",
     play: "▶ Play", play_ok: "Opening RuneLite…", play_fail: "Could not open RuneLite: {e}",
     s_rl: "RuneLite", s_rl_d: "The ▶ Play button, and opening the game together with the toolkit.",
     s_rl_launch: "Open RuneLite when I start the toolkit", s_rl_launch_s: "not when it starts quietly with Windows",
@@ -249,7 +251,8 @@ const I18N = {
   fr: {
     tab_overview: "Aperçu", tab_market: "Marché", tab_progress: "Progression", tab_claude: "Claude", tab_settings: "Paramètres",
     loading: "Chargement…", char: "Perso", mode: "Mode", members: "membre", f2p: "gratuit", scanned: "Scan",
-    cash: "Cash libre", cash_hint: "banque + inventaire", locked: "Bloqué dans le GE", slots: "Slots GE libres",
+    cash: "Cash libre", cash_hint: "banque + inventaire",
+    income: "Revenu / heure jouée", income_hint: "aujourd'hui · {h} h jouées", income_flips: "flips {p}", income_wait: "s'enregistre pendant que tu joues", locked: "Bloqué dans le GE", slots: "Slots GE libres",
     budget: "Budget / slot libre", magic: "Magic", position: "Position", bank_age: "banque {age}",
     ge_title: "Mes offres GE", ge_missing: "Pas encore de données GE : installe le plugin « Position Exporter » depuis le Plugin Hub de RuneLite.",
     updated: "mis à jour {age}", slot: "Slot", item: "Objet", offer: "Prix offre", filled: "Rempli", avg_real: "Prix moyen réel",
@@ -286,6 +289,7 @@ const I18N = {
     s_general: "Général", s_general_d: "Langue, personnage et comportement de l'application.",
     s_lang: "Langue", s_char: "Personnage", s_char_auto: "Le dernier joué", s_scan: "Scanner toutes les (minutes)",
     s_open: "Ouvrir ce dashboard au démarrage", s_autostart: "Démarrer avec Windows", s_updates: "Vérifier les mises à jour",
+    s_autoupd: "Installer les mises à jour automatiquement", s_autoupd_s: "Installation silencieuse, seulement si tu n'as pas joué, streamé ou utilisé Claude vocal depuis 10 minutes. L'app redémarre toute seule.",
     play: "▶ Jouer", play_ok: "Ouverture de RuneLite…", play_fail: "Impossible d'ouvrir RuneLite : {e}",
     s_rl: "RuneLite", s_rl_d: "Le bouton ▶ Jouer, et l'ouverture du jeu en même temps que l'outil.",
     s_rl_launch: "Ouvrir RuneLite quand je lance l'outil", s_rl_launch_s: "pas quand il démarre discrètement avec Windows",
@@ -478,6 +482,7 @@ async function connectClaude() {
 async function disconnectClaude() { await post("/api/claude", {action: "disconnect"}); refresh(); }
 
 // ------------------------------------------------------------- main loop
+let INCOME = null;
 async function refresh() {
   const st = await tryJSON("/api/state");
   if (!st) return;
@@ -493,10 +498,13 @@ async function refresh() {
     : "";
   const cash = bank ? coins(bank) + coins(inv) : (m ? m.capital_gp : null);
   const freeSlots = ge ? (ge.slots || []).filter(s => s.state === "EMPTY").length : (m ? m.free_slots : null);
+  if (!INCOME || Date.now() - INCOME.at > 60000) INCOME = {at: Date.now(), d: await tryJSON("/api/income?period=today")};
+  const inc = INCOME.d;
   const lvl = wildernessLevel(pos);
   document.getElementById("wildy").innerHTML = lvl ? `<div class="wildy ${lvl >= 20 ? "wildy-high" : "wildy-low"}">${T("wildy", {lvl})}</div>` : "";
   document.getElementById("cards").innerHTML = st.character ? `
     <div class="card"><div class="label">${T("cash")}</div><div class="value">${gp(cash)}</div><div class="hint">${T("cash_hint")} · ${T("bank_age", {age: ago(st.file_ages_min["bank.json"])})}</div></div>
+    ${inc ? `<div class="card"><div class="label">${T("income")}</div><div class="value">${inc.gp_per_hour != null ? gp(inc.gp_per_hour) : "—"}</div><div class="hint">${inc.played_hours != null ? T("income_hint", {h: inc.played_hours.toFixed(1)}) + (inc.ge_flip_profit ? " · " + T("income_flips", {p: gp(inc.ge_flip_profit)}) : "") : T("income_wait")}</div></div>` : ""}
     ${ge ? `<div class="card"><div class="label">${T("locked")}</div><div class="value">${gp(ge.gp_locked_in_buys)}</div></div>` : ""}
     <div class="card"><div class="label">${T("slots")}</div><div class="value">${freeSlots ?? "—"} / ${m ? m.slots : 8}</div></div>
     <div class="card"><div class="label">${T("budget")}</div><div class="value">${freeSlots ? gp(Math.floor(cash / freeSlots)) : "—"}</div></div>
@@ -536,7 +544,8 @@ async function loadSettings() {
       row("s_open", sw("open_dashboard_on_start", s.open_dashboard_on_start)) +
       row("s_autostart", sw("autostart", r.autostart)) +
       row("s_updates", sw("check_updates", s.check_updates) +
-        ` <button class="btn ghost" type="button" style="margin-left:8px" onclick="checkUpdateNow(this)">${T("check_now")}</button>`)) +
+        ` <button class="btn ghost" type="button" style="margin-left:8px" onclick="checkUpdateNow(this)">${T("check_now")}</button>`) +
+      row("s_autoupd", sw("auto_install_updates", s.auto_install_updates), "s_autoupd_s")) +
     panel("s_rl", "s_rl_d",
       row("s_rl_launch", sw("launch_runelite", s.launch_runelite), "s_rl_launch_s") +
       `<label style="display:block;margin-top:12px">${T("s_rl_path")}<small style="display:block;margin:2px 0 6px">${T("s_rl_path_s")}</small></label>
@@ -616,7 +625,7 @@ val("saveBtn").onclick = async () => {
   const body = {
     settings: {language: val("language").value, character: val("character").value || null,
                scan_interval_sec: Math.max(1, nv("scan_min")) * 60, open_dashboard_on_start: on("open_dashboard_on_start"),
-               check_updates: on("check_updates"), launch_runelite: on("launch_runelite"),
+               check_updates: on("check_updates"), auto_install_updates: on("auto_install_updates"), launch_runelite: on("launch_runelite"),
                runelite_path: val("runelite_path").value.trim(),
                stream_enabled: on("stream_enabled"), stream_channel: val("stream_channel").value.trim().replace(/^.*twitch\.tv\//, ""),
                stream_display_name: val("stream_display_name").value.trim(), stream_bot_name: val("stream_bot_name").value.trim(),

@@ -29,6 +29,7 @@ from paths import APP_NAME, VERSION, DATA_DIR, LOG_FILE, RESOURCE_DIR, GITHUB_RE
 
 MUTEX_NAME = "OSRSGEToolkit"     # also used by the installer to close the app before updating
 FIRST_RUN_FLAG = DATA_DIR / "_first_run_done"
+AUTO_UPDATE_IDLE_SEC = 10 * 60   # automatic updates wait until nothing has been played/used for this long
 
 
 # ------------------------------------------------------------------ logging ---
@@ -59,6 +60,8 @@ class App:
         self.character = None
         self.update = {}
         self.stop = threading.Event()
+        self._auto_tried = None       # version the automatic update already tried
+        self._auto_waiting = None
 
     @property
     def url(self):
@@ -106,6 +109,67 @@ class App:
                 log("alerts crashed, restarting in 30 s:\n" + traceback.format_exc())
                 time.sleep(30)
 
+    def income_loop(self):
+        """Wealth snapshot every minute while playing (gp per played hour, see income.py)."""
+        import income
+        try:
+            income.prune_all()
+        except Exception:
+            log("income prune failed:\n" + traceback.format_exc())
+        while not self.stop.is_set():
+            try:
+                name, folder = data.resolve_character(None)
+                income.record(name, folder)
+            except Exception:
+                log("income sample failed:\n" + traceback.format_exc())
+            self.stop.wait(income.SAMPLE_SEC)
+
+    def busy_reason(self):
+        """Why an automatic update must wait (None = safe to restart the app now)."""
+        import income
+        import server
+        _, folder = data.resolve_character(None)
+        idle = income.seconds_since_played(folder) if folder else None
+        if idle is not None and idle < AUTO_UPDATE_IDLE_SEC:
+            return "playing"
+        if time.time() - server.LAST_REMOTE_CALL < AUTO_UPDATE_IDLE_SEC:
+            return "Claude is using the bridge"
+        try:
+            from stream import STREAM
+            meld = STREAM.state(include_game=False).get("meld") or {}
+            if meld.get("online") and meld.get("streaming"):
+                return "streaming"
+        except Exception:
+            pass
+        return None
+
+    def maybe_auto_update(self):
+        latest = self.update.get("latest")
+        if not (self.update.get("update_available") and settings.load().get("auto_install_updates")):
+            return
+        if latest == self._auto_tried:
+            return                        # one attempt per version: never loop on a broken installer
+        reason = self.busy_reason()
+        if reason:
+            if reason != self._auto_waiting:
+                log(f"auto-update to {latest} waiting: {reason}")
+                self._auto_waiting = reason
+            return
+        import updates
+        self._auto_tried = latest
+        log(f"auto-update: installing {latest}")
+        try:
+            ok, msg = updates.install_silently()
+        except Exception as e:
+            ok, msg = False, str(e)
+        if not ok:
+            log(f"auto-update failed: {msg}")
+            self.notify(APP_NAME, t("auto_update_fail", error=msg))
+            return
+        self.notify(APP_NAME, t("auto_update_now", version=latest))
+        time.sleep(2)
+        self.quit()                        # the helper waits for us, installs, and restarts the app
+
     def watcher_loop(self):
         """Setup hint while there is no data, tray tooltip, update notice."""
         told_setup = told_update = False
@@ -125,6 +189,7 @@ class App:
                 try:
                     import updates
                     self.update = updates.check()
+                    self.maybe_auto_update()
                     if self.update.get("update_available") and not told_update:
                         self.notify(APP_NAME, t("tray_update", version=self.update.get("latest")))
                         told_update = True
@@ -220,7 +285,7 @@ class App:
         httpd, self.port = server.start()
         if not self.port:
             log("no free port for the dashboard (8765-8775)")
-        for target in (self.scanner_loop, self.alerts_loop, self.watcher_loop):
+        for target in (self.scanner_loop, self.alerts_loop, self.watcher_loop, self.income_loop):
             threading.Thread(target=target, daemon=True, name=target.__name__).start()
         try:
             from stream import STREAM

@@ -1,5 +1,6 @@
 """Checks GitHub for a newer release (at most every 30 minutes, cached on disk) and installs it."""
 import json
+import os
 import time
 
 from paths import VERSION, GITHUB_REPO, DATA_DIR, USER_AGENT
@@ -45,24 +46,16 @@ def check(force=False):
         except OSError:
             pass
     latest = info.get("latest")
+    # testing only: act as an older version to try the update flow without publishing a release
+    compare_to = os.environ.get("OSRS_TOOLKIT_PRETEND_VERSION") or VERSION
     return {"current": VERSION, "latest": latest,
-            "update_available": bool(latest and _parse(latest) > _parse(VERSION)),
+            "update_available": bool(latest and _parse(latest) > _parse(compare_to)),
             "url": info.get("url"), "download": info.get("download"), "notes": info.get("notes", "")}
 
 
-def install():
-    """Download the latest installer from this project's GitHub Releases and start it.
-    The installer closes the running app, updates it (settings are kept) and reopens it.
-    Returns (ok, message)."""
+def _download(url):
     import os
-    import subprocess
     import tempfile
-    info = check(force=True)
-    url = info.get("download") or ""
-    if not info.get("update_available"):
-        return False, "already up to date"
-    if not url.startswith(f"https://github.com/{GITHUB_REPO}/releases/download/"):
-        return False, "no installer found in the latest release"
     dest = os.path.join(tempfile.gettempdir(), url.rsplit("/", 1)[-1])
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=120) as r, open(dest + ".part", "wb") as f:
@@ -72,5 +65,54 @@ def install():
                 break
             f.write(chunk)
     os.replace(dest + ".part", dest)
-    subprocess.Popen([dest], close_fds=True)
+    return dest
+
+
+def _latest_installer():
+    """(info, url) if a newer installer is published on this project's GitHub, else (info, None)."""
+    info = check(force=True)
+    url = info.get("download") or ""
+    if not info.get("update_available") or not url.startswith(f"https://github.com/{GITHUB_REPO}/releases/download/"):
+        return info, None
+    return info, url
+
+
+def install():
+    """Download the latest installer from this project's GitHub Releases and start it.
+    The installer closes the running app, updates it (settings are kept) and reopens it.
+    Returns (ok, message)."""
+    import subprocess
+    info, url = _latest_installer()
+    if not info.get("update_available"):
+        return False, "already up to date"
+    if not url:
+        return False, "no installer found in the latest release"
+    subprocess.Popen([_download(url)], close_fds=True)
+    return True, info.get("latest")
+
+
+def install_silently():
+    """Automatic update: download the installer and hand over to a small helper script that
+    waits for this app to quit, runs the installer silently (no wizard, settings kept), then
+    starts the toolkit again in the background. The caller must quit the app right after.
+    The installer's own "launch" step is skipped in silent mode, hence the helper.
+    Returns (ok, message)."""
+    import os
+    import subprocess
+    import sys
+    import tempfile
+    info, url = _latest_installer()
+    if not url:
+        return False, "no update to install"
+    setup = _download(url)
+    relaunch = f'start "" "{sys.executable}" --background' if getattr(sys, "frozen", False) else "rem not frozen"
+    script = os.path.join(tempfile.gettempdir(), "osrs-toolkit-update.cmd")
+    with open(script, "w", encoding="utf-8", newline="") as f:
+        f.write("@echo off\r\n"
+                "rem OSRS Toolkit automatic update (written by the app, safe to delete)\r\n"
+                "ping -n 5 127.0.0.1 >nul\r\n"   # ~4 s for the app to quit (timeout needs a console)
+                f'start "" /wait "{setup}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS\r\n'
+                f"{relaunch}\r\n")
+    flags = 0x08000000 | 0x00000200   # CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
+    subprocess.Popen(["cmd", "/c", script], close_fds=True, creationflags=flags if os.name == "nt" else 0)
     return True, info.get("latest")

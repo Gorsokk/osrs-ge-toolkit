@@ -12,7 +12,7 @@ from pathlib import Path
 
 APP_NAME = "OSRS Toolkit"        # formerly "OSRS GE Toolkit" (now the GE module of OSRS Toolkit)
 DATA_FOLDER = "OSRS GE Toolkit"  # kept so settings and history survive the rename
-VERSION = "1.4.2"
+VERSION = "1.4.3"
 GITHUB_REPO = "Gorsokk/osrs-toolkit"
 
 RUNELITE_ROOT = Path.home() / ".runelite" / "character-exporter"
