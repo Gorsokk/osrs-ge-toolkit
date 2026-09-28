@@ -294,6 +294,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._send(*stream_post(path[len("/api/stream/"):], body))
             if path == "/api/check-update":
                 return self._send(200, updates.check(force=True))
+            if path == "/api/update/install":
+                ok, msg = updates.install()
+                return self._send(200, {"ok": ok, "message": msg})
         except Exception as e:
             return self._send(500, {"ok": False, "error": str(e)})
         return self._send(404, {"error": "not found"})

@@ -192,7 +192,8 @@ const I18N = {
     b_bank_old: "Your bank was last exported {age}. Open your bank in game to refresh your cash.",
     b_claude: "<b>Ask Claude about your account.</b> \"How's my GE doing?\", \"Where am I, what's the next quest step?\", \"Plan my way to a bond\".",
     b_claude_restart: "Connected to Claude ✓ — restart the Claude app if you just connected.",
-    b_update: "<b>Update available: {v}</b> (you have {cur}).", download: "Download", connect_claude: "Connect to Claude", learn: "How it works",
+    b_update: "<b>Update available: {v}</b> (you have {cur}).", download: "Download", install_now: "Install now", whats_new: "What's new", upd_dl: "Downloading the update… the installer opens in a moment.",
+    upd_fail: "Update failed: {e}", upd_none: "You're up to date ({v}).", upd_found: "Update {v} available!", check_now: "Check now", connect_claude: "Connect to Claude", learn: "How it works",
     claude_h: "Use your account with Claude", claude_desc: "Connect once, then just ask Claude (desktop app) about your character, bank, GE offers, the market, quests… Claude reads your data through this toolkit; it never plays for you.",
     claude_on: "✓ Connected to the Claude desktop app.", claude_off: "Not connected yet.",
     claude_restart: "Restart the Claude desktop app (quit it from its tray icon, then reopen it) to load the connection.",
@@ -273,7 +274,8 @@ const I18N = {
     b_bank_old: "Dernier export de ta banque : {age}. Ouvre ta banque en jeu pour rafraîchir ton cash.",
     b_claude: "<b>Pose des questions à Claude sur ton compte.</b> « Comment va mon GE ? », « Où suis-je, quelle est la prochaine étape de ma quête ? », « Plan pour un bond ».",
     b_claude_restart: "Connecté à Claude ✓ — redémarre l'application Claude si tu viens de te connecter.",
-    b_update: "<b>Mise à jour disponible : {v}</b> (tu as la {cur}).", download: "Télécharger", connect_claude: "Connecter à Claude", learn: "Comment ça marche",
+    b_update: "<b>Mise à jour disponible : {v}</b> (tu as la {cur}).", download: "Télécharger", install_now: "Installer maintenant", whats_new: "Nouveautés", upd_dl: "Téléchargement de la mise à jour… l'installeur s'ouvre dans un instant.",
+    upd_fail: "Échec de la mise à jour : {e}", upd_none: "Tu as la dernière version ({v}).", upd_found: "Mise à jour {v} disponible !", check_now: "Vérifier maintenant", connect_claude: "Connecter à Claude", learn: "Comment ça marche",
     claude_h: "Utilise ton compte avec Claude", claude_desc: "Connecte-toi une fois, puis pose tes questions à Claude (application de bureau) sur ton perso, ta banque, tes offres GE, le marché, les quêtes… Claude lit tes données via cet outil ; il ne joue jamais à ta place.",
     claude_on: "✓ Connecté à l'application Claude.", claude_off: "Pas encore connecté.",
     claude_restart: "Redémarre l'application Claude (quitte-la depuis son icône près de l'horloge, puis rouvre-la) pour charger la connexion.",
@@ -443,7 +445,8 @@ function renderBanners(st) {
   const b = [];
   if (st.update && st.update.update_available)
     b.push(`<div class="banner b-update"><div class="grow">${T("b_update", {v: esc(st.update.latest), cur: esc(st.update.current)})}</div>
-      <a class="btn green" target="_blank" href="${esc(st.update.download || st.update.url)}">${T("download")}</a></div>`);
+      <button class="btn green" type="button" onclick="installUpdate(this)">${T("install_now")}</button>
+      <a class="btn ghost" target="_blank" href="${esc(st.update.url || st.update.download)}">${T("whats_new")}</a></div>`);
   if (st.problems.includes("no_data")) b.push(`<div class="banner b-warn"><div class="grow">${T("b_no_data")}</div></div>`);
   else if (st.problems.includes("no_position_exporter")) b.push(`<div class="banner b-info"><div class="grow">${T("b_no_pe")}</div></div>`);
   if (st.problems.includes("bank_old")) b.push(`<div class="banner b-info"><div class="grow">${T("b_bank_old", {age: ago(st.file_ages_min["bank.json"])})}</div></div>`);
@@ -532,7 +535,8 @@ async function loadSettings() {
       row("s_scan", num("scan_min", Math.round(s.scan_interval_sec / 60))) +
       row("s_open", sw("open_dashboard_on_start", s.open_dashboard_on_start)) +
       row("s_autostart", sw("autostart", r.autostart)) +
-      row("s_updates", sw("check_updates", s.check_updates))) +
+      row("s_updates", sw("check_updates", s.check_updates) +
+        ` <button class="btn ghost" type="button" style="margin-left:8px" onclick="checkUpdateNow(this)">${T("check_now")}</button>`)) +
     panel("s_rl", "s_rl_d",
       row("s_rl_launch", sw("launch_runelite", s.launch_runelite), "s_rl_launch_s") +
       `<label style="display:block;margin-top:12px">${T("s_rl_path")}<small style="display:block;margin:2px 0 6px">${T("s_rl_path_s")}</small></label>
@@ -641,6 +645,25 @@ val("saveBtn").onclick = async () => {
     val("saveMsg").textContent = T("saved");
   } catch (e) { val("saveMsg").textContent = T("save_err", {e: e.message}); }
 };
+
+// ------------------------------------------------------------------ updates
+async function checkUpdateNow(btn) {
+  btn.disabled = true;
+  try {
+    const u = await post("/api/check-update", {});
+    toast(u.update_available ? T("upd_found", {v: u.latest}) : T("upd_none", {v: u.current}));
+    await refresh();
+  } catch (e) { toast(T("upd_fail", {e: e.message})); }
+  btn.disabled = false;
+}
+async function installUpdate(btn) {
+  btn.disabled = true;
+  toast(T("upd_dl"));
+  try {
+    const r = await post("/api/update/install", {});
+    if (!r.ok) throw new Error(r.message || r.error || "error");
+  } catch (e) { toast(T("upd_fail", {e: e.message})); btn.disabled = false; }
+}
 
 // ------------------------------------------------------------------ play
 document.getElementById("playBtn").onclick = async () => {

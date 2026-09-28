@@ -1,4 +1,4 @@
-"""Checks GitHub for a newer release (at most every 6 hours, cached on disk)."""
+"""Checks GitHub for a newer release (at most every 30 minutes, cached on disk) and installs it."""
 import json
 import time
 
@@ -6,7 +6,7 @@ from paths import VERSION, GITHUB_REPO, DATA_DIR, USER_AGENT
 import urllib.request
 
 CACHE = DATA_DIR / "_update_check.json"
-MAX_AGE = 6 * 3600
+MAX_AGE = 30 * 60
 
 
 def _parse(v):
@@ -48,3 +48,29 @@ def check(force=False):
     return {"current": VERSION, "latest": latest,
             "update_available": bool(latest and _parse(latest) > _parse(VERSION)),
             "url": info.get("url"), "download": info.get("download"), "notes": info.get("notes", "")}
+
+
+def install():
+    """Download the latest installer from this project's GitHub Releases and start it.
+    The installer closes the running app, updates it (settings are kept) and reopens it.
+    Returns (ok, message)."""
+    import os
+    import subprocess
+    import tempfile
+    info = check(force=True)
+    url = info.get("download") or ""
+    if not info.get("update_available"):
+        return False, "already up to date"
+    if not url.startswith(f"https://github.com/{GITHUB_REPO}/releases/download/"):
+        return False, "no installer found in the latest release"
+    dest = os.path.join(tempfile.gettempdir(), url.rsplit("/", 1)[-1])
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=120) as r, open(dest + ".part", "wb") as f:
+        while True:
+            chunk = r.read(1 << 16)
+            if not chunk:
+                break
+            f.write(chunk)
+    os.replace(dest + ".part", dest)
+    subprocess.Popen([dest], close_fds=True)
+    return True, info.get("latest")
