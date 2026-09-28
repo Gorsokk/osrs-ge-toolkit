@@ -124,6 +124,16 @@ TOOLS = [
     tool("stream_status",
          "Stream co-host: Twitch chat connection, Meld Studio link (scenes, current scene, live or not), "
          "what the overlay shows (bond progress, top flip, recent alerts, last messages).", {}),
+    tool("get_sell_advice",
+         "How to price items the player wants to SELL: a ready-made ladder (fast / balanced / patient) from "
+         "live prices, with GE tax, net gp per item and profit against the player's cost when known. Always "
+         "use this for 'what price should I sell X at'. patient is always >= balanced >= fast.",
+         {**CHAR_ARG,
+          "item": {"type": "string", "description": "Exact item name or numeric id."},
+          "quantity": {"type": "integer", "description": "How many to sell. Default: what the player holds "
+                       "(inventory + bank + unsold GE sell offers)."},
+          "cost_per_item": {"type": "number", "description": "What the player paid each, if they said so. "
+                            "Default: the cost the toolkit tracked from their GE buys."}}),
     tool("get_income",
          "Income per PLAYED hour (logged-in time only): wealth change (bank + inventory + equipment + open "
          "GE offers, at live prices) divided by hours actually played, plus realized GE flip profit. "
@@ -440,6 +450,80 @@ def t_get_item_price(args):
     return out
 
 
+def _held(folder, iid):
+    """(quantity held in inventory + bank + unsold GE sell offers, open sell offers for this item)."""
+    held, offers = 0, []
+    for fn in ("inventory.json", "bank.json"):
+        d, _ = read_export(folder, fn)
+        held += sum(i.get("quantity", 0) for i in (d or {}).get("items", []) if i.get("id") == iid)
+    ge, _ = read_export(folder, "ge_offers.json")
+    for sl in (ge or {}).get("slots", []):
+        if sl.get("item_id") == iid and sl.get("type") == "SELL" and sl.get("state") != "EMPTY" and not sl.get("complete"):
+            left = max(0, (sl.get("quantity_total") or 0) - (sl.get("quantity_filled") or 0))
+            held += left
+            offers.append({"slot": sl.get("slot"), "price": sl.get("price"), "unsold": left})
+    return held, offers
+
+
+def t_get_sell_advice(args):
+    name, folder = _char(args)
+    item, suggestions, _how = PRICES.match_item(args.get("item", ""))
+    if not item:
+        raise ToolError(f"No item matches '{args.get('item')}'. Did you mean: {', '.join(suggestions) or 'nothing close'}?")
+    iid = item["id"]
+    lt = PRICES.latest().get(str(iid)) or {}
+    hh = PRICES.h1().get(str(iid)) or {}
+    hi, lo = lt.get("high"), lt.get("low")
+    if not hi or not lo:
+        raise ToolError(f"No recent trades for {item['name']}: cannot price it right now.")
+    if lo > hi:
+        hi, lo = lo, hi
+    volume = (hh.get("highPriceVolume") or 0) + (hh.get("lowPriceVolume") or 0)
+    held, offers = _held(folder, iid) if folder else (0, [])
+    qty = int(args.get("quantity") or held or 1)
+    cost = args.get("cost_per_item")
+    cost_source = "player" if cost else None
+    if not cost:
+        pos = ((data.load_json(DATA_DIR / "_alerts_state.json", {}) or {}).get("positions", {})).get(item["name"])
+        if pos and pos.get("qty"):
+            cost, cost_source = pos["cost_total"] / pos["qty"], "tracked GE buys"
+    fast = lo                                   # sells now, to the best current buyer
+    patient = max(lo, hi - 1)                   # undercut the cheapest seller by 1 gp
+    balanced = max(fast, min(patient, round((fast + patient) / 2)))
+
+    def option(price, speed):
+        net = net_sell(price)
+        o = {"price": price, "tax_per_item": tax(price), "net_per_item": net, "total_net": net * qty, "speed": speed}
+        if cost:
+            o["profit_per_item"] = round(net - cost, 1)
+            o["total_profit"] = int((net - cost) * qty)
+        return o
+
+    out = {"character": name, "item": item["name"], "quantity": qty,
+           "quantity_source": "player" if args.get("quantity") else ("held" if held else "default 1"),
+           "your_cost_per_item": round(cost, 1) if cost else None, "cost_source": cost_source,
+           "market": {"instant_buy": hi, "instant_sell": lo, "volume_1h": volume,
+                      "last_trade": human_age((time.time() - max(lt.get("highTime") or 0, lt.get("lowTime") or 0)) / 60)},
+           "fast": option(fast, "fills right away (sells to the current best buyer)"),
+           "balanced": option(balanced, "usually fills within the hour on a liquid item"),
+           "patient": option(patient, "best price; can take hours and stalls if the market drops"),
+           "open_sell_offers": offers, "warnings": []}
+    if volume and qty > 0.1 * volume:
+        out["warnings"].append(f"{qty} is {round(qty / volume * 100)}% of the hourly volume: expect slower fills, "
+                               "or split the sale.")
+    if cost and net_sell(patient) < cost:
+        out["warnings"].append("Every option sells below your cost: selling now locks in a loss.")
+    elif cost and net_sell(fast) < cost:
+        out["warnings"].append("The fast price is below your cost; balanced or patient keeps a profit.")
+    for o in offers:
+        if o["price"] > hi:
+            out["warnings"].append(f"Your offer in slot {o['slot']} at {o['price']} is above every current "
+                                   f"seller ({hi}): it will not fill until the market rises.")
+    # the tool picks, so the model only has to read it out
+    out["suggested"] = "patient" if cost and net_sell(balanced) < cost <= net_sell(patient) else "balanced"
+    return out
+
+
 def t_get_income(args):
     import income
     name, _folder = _char(args)
@@ -532,6 +616,7 @@ HANDLERS = {
     "get_inventory": t_get_inventory, "get_bank": t_get_bank, "get_ge_offers": t_get_ge_offers,
     "get_market_opportunities": t_get_market_opportunities, "get_item_price": t_get_item_price,
     "get_recent_alerts": t_get_recent_alerts, "get_income": t_get_income,
+    "get_sell_advice": t_get_sell_advice,
 }
 
 
