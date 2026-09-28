@@ -97,7 +97,7 @@ TOOLS = [
          "Live Grand Exchange price for any item (by name or id): instant buy/sell, 5-minute / 1-hour / "
          "24-hour averages and volumes, buy limit, margin after tax, High Alchemy value and profit, "
          "optional 7-day or 30-day history.",
-         {"item": {"type": "string", "description": "Item name (fuzzy) or numeric item id."},
+         {"item": {"type": "string", "description": "Exact in-game item name (or numeric item id). Unclear names return an error listing the closest items: pick one or ask the user, never assume. In voice mode, if a name sounds misheard, check get_inventory / get_bank for the real name first. The result's matched_by says how the name was matched (exact, plural, prefix, words, fuzzy)."},
           "history_days": {"type": "integer", "enum": [0, 7, 30], "description": "Default 0 (no history)."}},
          ["item"]),
     tool("stream_get_chat",
@@ -392,7 +392,7 @@ def t_get_market_opportunities(args):
 
 
 def t_get_item_price(args):
-    item, suggestions = PRICES.find_item(args.get("item", ""))
+    item, suggestions, how = PRICES.match_item(args.get("item", ""))
     if not item:
         raise ToolError(f"No item matches '{args.get('item')}'. Did you mean: {', '.join(suggestions) or 'nothing close'}?")
     iid = str(item["id"])
@@ -400,7 +400,8 @@ def t_get_item_price(args):
     f5, hh, dd = PRICES.m5().get(iid) or {}, PRICES.h1().get(iid) or {}, PRICES.h24().get(iid) or {}
     hi, lo = lt.get("high"), lt.get("low")
     nat = PRICES.nature_rune()
-    out = {"item": item["name"], "id": item["id"], "members": item.get("members"), "examine": item.get("examine"),
+    out = {"item": item["name"], "id": item["id"], "query": args.get("item"), "matched_by": how,
+           **({"other_matches": suggestions} if suggestions else {}), "members": item.get("members"), "examine": item.get("examine"),
            "buy_limit_4h": item.get("limit"), "high_alch": item.get("highalch"),
            "instant_buy": hi, "instant_sell": lo,
            "last_trades_age": {"buy": human_age((time.time() - lt["highTime"]) / 60) if lt.get("highTime") else None,

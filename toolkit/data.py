@@ -205,26 +205,57 @@ class Prices:
             self._by_name = {m["name"].lower(): m for m in cached}
         return self._mapping
 
+    # auto-pick a fuzzy match only when it is close AND clearly ahead of the runner-up;
+    # otherwise return suggestions so the caller (Claude, !ge) can ask instead of guessing
+    FUZZY_ACCEPT = 0.85
+    FUZZY_LEAD = 0.05
+
     def find_item(self, query):
-        """Item by id or name (exact, then prefix, then fuzzy). Returns (item, suggestions)."""
+        """Item by id or name. Returns (item, suggestions).
+
+        Order: id, exact name, exact name with the plural trimmed, unique prefix, then a
+        fuzzy match only if it is unambiguous. A wrong item is worse than no item (voice
+        mishearings like "Camulet" used to land on a random amulet), so when in doubt it
+        returns None plus the closest names."""
+        item, sugg, _how = self.match_item(query)
+        return item, sugg
+
+    def match_item(self, query):
+        """Like find_item but also says how it matched: id, exact, plural, prefix, fuzzy or None."""
         mapping = self.mapping()
-        q = str(query).strip()
+        q = " ".join(str(query).split())
         if q.isdigit() and int(q) in mapping:
-            return mapping[int(q)], []
+            return mapping[int(q)], [], "id"
         ql = q.lower()
+        if not ql:
+            return None, [], None
         if ql in self._by_name:
-            return self._by_name[ql], []
+            return self._by_name[ql], [], "exact"
+        for singular in (ql[:-2] if ql.endswith("es") else None, ql[:-1] if ql.endswith("s") else None):
+            if singular and singular in self._by_name:       # "nature runes" -> "Nature rune"
+                return self._by_name[singular], [], "plural"
         starts = sorted((n for n in self._by_name if n.startswith(ql)), key=len)
         contains = sorted((n for n in self._by_name if ql in n and n not in starts), key=len)
         if len(starts) == 1:   # e.g. "Draynor manor teleport" -> "Draynor manor teleport (tablet)"
-            return self._by_name[starts[0]], []
-        fuzzy = difflib.get_close_matches(ql, list(self._by_name), n=5, cutoff=0.6)
-        candidates = list(dict.fromkeys(starts + contains + fuzzy))
-        if len(candidates) == 1 or (candidates and candidates[0] in fuzzy[:1] and not starts and not contains):
-            return self._by_name[candidates[0]], []
+            return self._by_name[starts[0]], [], "prefix"
         if starts and len(starts[0]) - len(ql) <= 3:
-            return self._by_name[starts[0]], [self._by_name[n]["name"] for n in candidates[1:6]]
-        return None, [self._by_name[n]["name"] for n in candidates[:8]]
+            return (self._by_name[starts[0]],
+                    [self._by_name[n]["name"] for n in (starts[1:] + contains)[:5]], "prefix")
+        words = ql.split()
+        if len(words) > 1:   # shorthand: every spoken word is in exactly one name ("camphor kit")
+            by_words = [n for n in self._by_name if all(w in n.replace("(", " ").split() for w in words)]
+            if len(by_words) == 1:
+                return self._by_name[by_words[0]], [], "words"
+        scored = sorted(((difflib.SequenceMatcher(None, ql, n).ratio(), n) for n in self._by_name), reverse=True)[:6]
+        fuzzy = [n for r, n in scored if r >= 0.6]
+        candidates = list(dict.fromkeys(starts + contains + fuzzy))
+        if not starts and not contains and scored:
+            best, runner = scored[0][0], (scored[1][0] if len(scored) > 1 else 0)
+            if best >= self.FUZZY_ACCEPT and best - runner >= self.FUZZY_LEAD:
+                return self._by_name[scored[0][1]], [], "fuzzy"
+        if len(candidates) == 1 and (starts or contains):
+            return self._by_name[candidates[0]], [], "prefix"
+        return None, [self._by_name[n]["name"] for n in candidates[:8]], None
 
     def unit_value(self, item_id):
         """Conservative gp value of one item: the lower of the last instant buy/sell prices."""
