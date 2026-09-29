@@ -63,7 +63,7 @@ The URL contains a secret: anyone who has it can read your character data and po
 2. Keep **"Connect to the Claude desktop app"** checked. That's the one-click Claude setup.
 3. **In RuneLite**, open the wrench icon → **Plugin Hub** and install:
    - **Character Export** (by DZWNK): stats, bank, inventory, quests…
-   - **Position Exporter**: Grand Exchange offers and position.
+   - **OSRS Toolkit Exporter**: Grand Exchange offers and position.
      > **Not on the Plugin Hub yet:** it is [waiting for approval](https://github.com/runelite/plugin-hub/pull/17152). Until then everything works except live GE offers and position (stats, bank, prices, flips, alerts and Claude are fine).
    - *Optional:* **OSRS Toolkit Panel**: a GE price helper with a price chart, plus a side panel that shows the toolkit's bond progress, top flips and alerts inside RuneLite. Also [waiting for approval](https://github.com/runelite/plugin-hub/pull/17208).
 4. Log in and **open your bank once**.
@@ -124,8 +124,8 @@ Never use any tool to automate gameplay: it breaks Jagex's rules.
 
 1. **Télécharge** le `Setup.exe` dans les [Releases](https://github.com/Gorsokk/osrs-toolkit/releases/latest) et lance-le. Si Windows affiche *« Windows a protégé votre ordinateur »*, clique sur **Informations complémentaires → Exécuter quand même**.
 2. Laisse cochée l'option **« Connecter à l'application Claude »**.
-3. Dans RuneLite, **clé à molette → Plugin Hub** : installe **Character Export** et **Position Exporter**.
-   > **Position Exporter n'est pas encore sur le Plugin Hub** ([en attente d'approbation](https://github.com/runelite/plugin-hub/pull/17152)). D'ici là, tout fonctionne sauf les offres GE en direct et la position.
+3. Dans RuneLite, **clé à molette → Plugin Hub** : installe **Character Export** et **OSRS Toolkit Exporter**.
+   > **OSRS Toolkit Exporter n'est pas encore sur le Plugin Hub** ([en attente d'approbation](https://github.com/runelite/plugin-hub/pull/17152)). D'ici là, tout fonctionne sauf les offres GE en direct et la position.
    *Optionnel :* **OSRS Toolkit Panel** (aide aux prix GE avec graphique, et panneau avec l'objectif bond, les flips et les alertes dans RuneLite), aussi [en attente d'approbation](https://github.com/runelite/plugin-hub/pull/17208).
 4. Connecte-toi et ouvre ta banque une fois.
 5. **Redémarre l'application Claude**, puis pose tes questions : *« Comment va mon GE ? »*, *« Où suis-je, quelle est la prochaine étape de ma quête ? »*

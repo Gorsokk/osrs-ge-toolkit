@@ -258,7 +258,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if fn not in DATA_FILES:
                 return self._send(404, {"error": "unknown file"})
             _, folder = data.resolve_character(None)
-            f = folder / fn if folder else None
+            f = data.export_path(folder, fn) if folder else None
             if not f or not f.exists():
                 return self._send(404, {"error": "not found"})
             return self._send(200, f.read_bytes(),

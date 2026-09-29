@@ -22,7 +22,7 @@ from datetime import datetime
 
 import data
 from data import PRICES, COINS_ID, read_export
-from paths import DATA_DIR
+from paths import DATA_DIR, export_path
 
 HISTORY_DIR = DATA_DIR / "income"
 SAMPLE_SEC = 60
@@ -43,7 +43,7 @@ def seconds_since_played(folder):
     newest = None
     for fn in LIVE_FILES:
         try:
-            m = (folder / fn).stat().st_mtime
+            m = export_path(folder, fn).stat().st_mtime
         except OSError:
             continue
         newest = m if newest is None else max(newest, m)

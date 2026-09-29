@@ -2,7 +2,7 @@
 OSRS Toolkit - Claude connector (MCP server over stdio).
 
 Gives Claude read-only tools over the player's RuneLite exports (Character Export +
-Position Exporter plugins) and live OSRS Wiki prices. Claude can read and advise;
+OSRS Toolkit Exporter plugins) and live OSRS Wiki prices. Claude can read and advise;
 it never controls the game.
 
 Launched by the Claude desktop app (see claude_connect.py). Protocol: JSON-RPC 2.0,
@@ -31,7 +31,7 @@ from paths import APP_NAME, VERSION, DATA_DIR, RUNELITE_ROOT  # noqa: E402
 SUPPORTED_PROTOCOLS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]
 
 INSTRUCTIONS = """OSRS Toolkit gives you read-only access to the user's Old School RuneScape character \
-(exported locally by the RuneLite plugins "Character Export" and "Position Exporter") and to live \
+(exported locally by the RuneLite plugins "Character Export" and "OSRS Toolkit Exporter") and to live \
 Grand Exchange prices from the OSRS Wiki.
 
 - Start with get_status if you are unsure what data exists or how fresh it is; mention stale data \
@@ -250,7 +250,7 @@ def t_get_status(args):
                             "present": d is not None, "updated": human_age(age) if d is not None else None}
     f = out["files"]
     if not f["position.json"]["present"] or not f["ge_offers.json"]["present"]:
-        out["problems"].append("No live position / GE offers: install the 'Position Exporter' plugin from the "
+        out["problems"].append("No live position / GE offers: install the 'OSRS Toolkit Exporter' plugin from the "
                                "RuneLite Plugin Hub.")
     if not f["market.json"]["present"]:
         out["problems"].append("No flip/alch scan yet: start OSRS Toolkit (desktop icon). "
@@ -296,7 +296,7 @@ def t_get_character(args):
 
 def t_get_position(args):
     name, folder = _char(args)
-    p, age = _need(folder, "position.json", "Needs the 'Position Exporter' plugin (RuneLite Plugin Hub).")
+    p, age = _need(folder, "position.json", "Needs the 'OSRS Toolkit Exporter' RuneLite plugin.")
     x, y, plane = p.get("x"), p.get("y"), p.get("plane", 0)
     return {"character": name, "updated": human_age(age), "world": p.get("world"),
             "x": x, "y": y, "plane": plane, "region_id": p.get("region_id"),
@@ -339,7 +339,7 @@ def t_get_bank(args):
 
 def t_get_ge_offers(args):
     name, folder = _char(args)
-    ge, age = _need(folder, "ge_offers.json", "Needs the 'Position Exporter' plugin, and a login.")
+    ge, age = _need(folder, "ge_offers.json", "Needs the 'OSRS Toolkit Exporter' RuneLite plugin, and a login.")
     latest, h1 = PRICES.latest(), PRICES.h1()
     positions = (data.load_json(DATA_DIR / "_alerts_state.json", {}) or {}).get("positions", {})
     slots = []

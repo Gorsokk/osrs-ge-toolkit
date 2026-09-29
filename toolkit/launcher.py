@@ -10,7 +10,7 @@ Right-click the tray icon for the menu (dashboard, settings, Connect to Claude, 
 
 Game data comes from two RuneLite Plugin Hub plugins:
   - "Character Export" (by DZWNK): stats, bank, inventory, quests...
-  - "Position Exporter" (this project): position + Grand Exchange offers
+  - "OSRS Toolkit Exporter" (this project): position + Grand Exchange offers
 
 Flags: --background (start silently, used by "Start with Windows"), --play (also open RuneLite,
 even if the toolkit is already running), --no-tray (dev/testing).

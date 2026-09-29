@@ -10,7 +10,7 @@ import time
 import urllib.request
 from datetime import datetime, timezone
 
-from paths import RUNELITE_ROOT, DATA_DIR, USER_AGENT
+from paths import RUNELITE_ROOT, DATA_DIR, USER_AGENT, export_path
 
 WIKI_API = "https://prices.runescape.wiki/api/v1/osrs"
 NATURE_RUNE_ID = 561
@@ -27,8 +27,8 @@ EXPORT_FILES = {
     "quests.json": ("quests", "Character Export"),
     "diaries.json": ("achievement diaries", "Character Export"),
     "combat_achievements.json": ("combat achievements", "Character Export"),
-    "position.json": ("live position", "Position Exporter"),
-    "ge_offers.json": ("Grand Exchange offers", "Position Exporter"),
+    "position.json": ("live position", "OSRS Toolkit Exporter"),
+    "ge_offers.json": ("Grand Exchange offers", "OSRS Toolkit Exporter"),
     "market.json": ("flip/alch scan", "OSRS GE Toolkit"),
 }
 
@@ -137,7 +137,7 @@ def resolve_character(name=None):
 
 def read_export(folder, filename):
     """(data, age_in_minutes). Age comes from the file's own exported_at when present."""
-    path = folder / filename
+    path = export_path(folder, filename)
     data = load_json(path)
     if data is None:
         return None, None

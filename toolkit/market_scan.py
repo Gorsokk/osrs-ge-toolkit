@@ -61,7 +61,7 @@ from pathlib import Path
 # ---------------------------------------------------------------- config ---
 # Nothing to edit here — the export folder and character name are detected
 # automatically for whoever runs this script (see find_export_dir()).
-from paths import RUNELITE_ROOT, DATA_DIR  # dossier de donnees utilisateur (%APPDATA%\\OSRS GE Toolkit)
+from paths import RUNELITE_ROOT, DATA_DIR, export_path  # dossier de donnees utilisateur (%APPDATA%\\OSRS GE Toolkit)
 CHAR_CHOICE_FILE = DATA_DIR / "_last_character.txt"
 
 # Filled in by setup_paths() once we know which character we're scanning —
@@ -152,7 +152,7 @@ def setup_paths(char_arg=None):
     BANK_JSON = EXPORT_DIR / "bank.json"
     INVENTORY_JSON = EXPORT_DIR / "inventory.json"
     OUTPUT_JSON = EXPORT_DIR / "market.json"
-    GE_OFFERS_JSON = EXPORT_DIR / "ge_offers.json"  # written by Position Exporter
+    GE_OFFERS_JSON = export_path(EXPORT_DIR, "ge_offers.json")  # written by OSRS Toolkit Exporter
     MAPPING_CACHE = EXPORT_DIR / "_mapping_cache.json"
 
 
@@ -162,7 +162,7 @@ ACTIVE_STATES = {"BUYING", "SELLING"}
 
 
 def read_ge_offers(total_slots):
-    """Read ge_offers.json (Position Exporter plugin) if it exists.
+    """Read ge_offers.json (OSRS Toolkit Exporter plugin) if it exists.
 
     Coins sitting in a GE offer have already left your bank, so bank coins are
     already 'free cash'. What changes is how many slots that cash is split

@@ -39,7 +39,7 @@ from pathlib import Path
 
 # ------------------------------------------------------------------ chemins ---
 from i18n import t
-from paths import RUNELITE_ROOT, DATA_DIR, USER_AGENT  # %APPDATA%\\OSRS GE Toolkit
+from paths import RUNELITE_ROOT, DATA_DIR, USER_AGENT, export_path  # %APPDATA%\\OSRS GE Toolkit
 CHAR_CHOICE_FILE = DATA_DIR / "_last_character.txt"
 CONFIG_FILE = DATA_DIR / "alerts_config.json"
 STATE_FILE = DATA_DIR / "_alerts_state.json"
@@ -341,7 +341,7 @@ class Alerts:
         c = self.cfg["ge_offers"]
         if not c["enabled"] or not self.export_dir:
             return
-        path = self.export_dir / "ge_offers.json"
+        path = export_path(self.export_dir, "ge_offers.json")
         try:
             mtime = path.stat().st_mtime
         except OSError:
@@ -466,7 +466,7 @@ class Alerts:
         for fn in ("bank.json", "inventory.json", "equipment.json"):
             for it in (load_json(self.export_dir / fn, {}) or {}).get("items", []) or []:
                 add(it.get("name"), it.get("quantity", 1))
-        ge = load_json(self.export_dir / "ge_offers.json", {}) or {}
+        ge = load_json(export_path(self.export_dir, "ge_offers.json"), {}) or {}
         for sl in ge.get("slots", []) or []:
             if sl.get("state") == "EMPTY":
                 continue

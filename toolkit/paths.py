@@ -1,7 +1,10 @@
 """Locations shared by the app, the scanner, the alerts and the Claude connector.
 
-- RUNELITE_ROOT: where the RuneLite plugins "Character Export" (Plugin Hub) and
-  "Position Exporter" write their JSON files (one sub-folder per character).
+- RUNELITE_ROOT: where the RuneLite plugin "Character Export" (Plugin Hub) writes its JSON files
+  (one sub-folder per character).
+- EXPORTER_ROOT: where "OSRS Toolkit Exporter" writes position.json and ge_offers.json, in
+  RuneLite's data folder for that plugin (one sub-folder per character). Older versions wrote
+  them into RUNELITE_ROOT: export_path() picks whichever file is newer.
 - DATA_DIR: the toolkit's own settings, alert config, state and log.
   Windows: %APPDATA%\\OSRS GE Toolkit (kept across updates and reinstalls).
 - RESOURCE_DIR: bundled read-only files (web/dashboard.html), also when frozen by PyInstaller.
@@ -16,6 +19,21 @@ VERSION = "1.4.3"
 GITHUB_REPO = "Gorsokk/osrs-toolkit"
 
 RUNELITE_ROOT = Path.home() / ".runelite" / "character-exporter"
+EXPORTER_ROOT = Path.home() / ".runelite" / "plugin-data" / "position-exporter"
+EXPORTER_FILES = ("position.json", "ge_offers.json")
+
+
+def export_path(folder, filename):
+    """Where to read one of a character's export files. folder = RUNELITE_ROOT / <character>."""
+    folder = Path(folder)
+    old = folder / filename
+    if filename not in EXPORTER_FILES:
+        return old
+    new = EXPORTER_ROOT / folder.name / filename
+    found = [p for p in (new, old) if p.is_file()]
+    if not found:
+        return new
+    return max(found, key=lambda p: p.stat().st_mtime)
 
 if sys.platform == "win32" and os.environ.get("APPDATA"):
     DATA_DIR = Path(os.environ["APPDATA"]) / DATA_FOLDER
