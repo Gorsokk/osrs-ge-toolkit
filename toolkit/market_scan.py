@@ -95,6 +95,7 @@ ALCHS_PER_HOUR = 1200          # rythme max de High Alch (1 cast / 5 ticks)
 
 WIKI_API = "https://prices.runescape.wiki/api/v1/osrs"
 from paths import USER_AGENT
+from money import cash_of
 
 NATURE_RUNE_ID = 561
 
@@ -210,10 +211,8 @@ def main():
 
     magic_level = character["stats"]["Magic"]["real_level"]
 
-    capital_gp = 0
-    for item in bank.get("items", []) + inventory.get("items", []):
-        if item.get("id") == 995:  # Coins
-            capital_gp += item.get("quantity", 0)
+    # free cash = coins + platinum tokens (1,000 gp each): since Beyond Max Cash the GE pays in both
+    capital_gp = cash_of(bank.get("items", []) + inventory.get("items", []))
     ge_state = read_ge_offers(GE_SLOTS)
     free_slots = ge_state["free_slots"] if ge_state else GE_SLOTS
     # split free cash only across slots that can actually take a new offer

@@ -24,6 +24,7 @@ import time
 import traceback
 
 import data
+import money
 import settings
 from data import PRICES, read_export, resolve_character
 from paths import GITHUB_REPO
@@ -70,14 +71,7 @@ def _t(key, lang, **kw):
 
 
 def gp(n):
-    if n is None:
-        return "?"
-    n = int(n)
-    if abs(n) >= 1_000_000:
-        return f"{n / 1_000_000:.2f}M"
-    if abs(n) >= 10_000:
-        return f"{n / 1000:.1f}k"
-    return f"{n:,}"
+    return "?" if n is None else money.gp(n)
 
 
 def _clean(text, limit=450):
@@ -88,7 +82,7 @@ def _clean(text, limit=450):
 
 # ------------------------------------------------------------- game data ---
 def bond_status():
-    """{'price', 'cash', 'pct', 'character'}; cash = coins (bank + inventory) + gp locked in GE buys."""
+    """{'price', 'cash', 'pct', 'character'}; cash = coins + platinum tokens (bank + inventory) + gp locked in GE buys."""
     out = {"price": None, "cash": None, "pct": None, "character": None}
     try:
         p = PRICES.latest().get(str(BOND_ID)) or {}

@@ -11,10 +11,11 @@ import urllib.request
 from datetime import datetime, timezone
 
 from paths import RUNELITE_ROOT, DATA_DIR, USER_AGENT, export_path
+from money import (COINS_ID, PLATINUM_TOKEN_ID, PLATINUM_TOKEN_VALUE,  # noqa: F401 (re-exported: one copy of these rules)
+                   cash_of, net_sell, split_cash, tax)
 
 WIKI_API = "https://prices.runescape.wiki/api/v1/osrs"
 NATURE_RUNE_ID = 561
-COINS_ID = 995
 MAPPING_CACHE = DATA_DIR / "_mapping_cache.json"
 MAPPING_MAX_AGE = 7 * 24 * 3600
 
@@ -88,15 +89,7 @@ def human_age(minutes):
     return f"{minutes / 1440:.1f} days ago"
 
 
-def tax(price):
-    """GE tax: 2% (rounded down), 0 under 50 gp, capped at 5M."""
-    if price < 50:
-        return 0
-    return min(int(price * 0.02), 5_000_000)
-
-
-def net_sell(price):
-    return price - tax(price)
+# GE tax (tax, net_sell) and cash (coins + platinum tokens) live in money.py
 
 
 # -------------------------------------------------------------- characters ---
@@ -261,6 +254,8 @@ class Prices:
         """Conservative gp value of one item: the lower of the last instant buy/sell prices."""
         if item_id == COINS_ID:
             return 1
+        if item_id == PLATINUM_TOKEN_ID:
+            return PLATINUM_TOKEN_VALUE   # fixed rate: tokens are not on the Wiki price list
         p = self.latest().get(str(item_id)) or {}
         lo, hi = p.get("low"), p.get("high")
         if lo and hi:

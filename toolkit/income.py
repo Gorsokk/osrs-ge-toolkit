@@ -5,7 +5,8 @@ Every minute while a character is playing, one line is appended to
 
     {"ts": ..., "cash": ..., "items": ..., "bank_ts": ...}
 
-- cash  = coins in bank + inventory, plus coins still locked in unfilled GE buy offers
+- cash  = coins and platinum tokens (1 token = 1,000 coins) in bank + inventory, plus the coins still locked in
+          unfilled GE buy offers
 - items = everything else at live prices: bank, inventory, worn equipment, unsold GE items
 
 Counting rule: income counts when it lands in the bank or inventory. The GE export does not
@@ -21,7 +22,7 @@ import time
 from datetime import datetime
 
 import data
-from data import PRICES, COINS_ID, read_export
+from data import PRICES, COINS_ID, PLATINUM_TOKEN_ID, PLATINUM_TOKEN_VALUE, read_export
 from paths import DATA_DIR, export_path
 
 HISTORY_DIR = DATA_DIR / "income"
@@ -71,6 +72,8 @@ def snapshot(folder):
                 continue
             if iid == COINS_ID:
                 cash += qty
+            elif iid == PLATINUM_TOKEN_ID:
+                cash += qty * PLATINUM_TOKEN_VALUE   # platinum is cash: the GE pays in both, so a swap is not income
             else:
                 items += (PRICES.unit_value(iid) or 0) * qty
 

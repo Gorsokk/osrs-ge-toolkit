@@ -161,31 +161,13 @@ def deep_merge(default, user):
     return out
 
 
-def tax(price):
-    if price < 50:
-        return 0
-    return min(int(price * 0.02), 5_000_000)
-
-
-def net_sell(price):
-    return price - tax(price)
-
-
-def breakeven(cost):
-    """Plus petit prix de vente qui ne perd pas d'argent apres la taxe."""
-    p = int(cost)
-    while net_sell(p) < cost:
-        p += 1
-    return p
+# The GE tax rules and the gp display are shared with the rest of the toolkit (money.py): one copy of each.
+from money import tax, net_sell, breakeven  # noqa: E402,F401
+import money  # noqa: E402
 
 
 def gp(n):
-    n = int(n)
-    if abs(n) >= 1_000_000:
-        return f"{n/1_000_000:.2f}M"
-    if abs(n) >= 10_000:
-        return f"{n/1000:.1f}k"
-    return f"{n:,}".replace(",", " ")
+    return money.gp(n, sep=" ")
 
 
 def percentile(values, pct):

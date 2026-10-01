@@ -347,6 +347,8 @@ function fmt(n) {
 function gp(n) {
   if (typeof n !== "number") return "—";
   const a = Math.abs(n);
+  if (a >= 1e12) return (n / 1e12).toFixed(2) + "T";
+  if (a >= 1e9) return (n / 1e9).toFixed(2) + "B";
   if (a >= 1e6) return (n / 1e6).toFixed(2) + "M";
   if (a >= 1e4) return (n / 1e3).toFixed(1) + "k";
   return fmt(n);
@@ -443,7 +445,10 @@ function renderProgress(q, d, ca) {
   ct.querySelector("thead").innerHTML = `<tr><th>${T("tier")}</th><th>${T("done")}</th><th>${T("total")}</th></tr>`;
   ct.querySelector("tbody").innerHTML = Object.keys(ti).map(k => `<tr><td>${esc(k)}</td><td class="${ti[k].complete ? "ok" : ""}">${ti[k].tasks_completed}</td><td>${ti[k].tasks_total}</td></tr>`).join("");
 }
-function coins(c) { return ((c && c.items) || []).filter(i => i.id === 995).reduce((a, i) => a + i.quantity, 0); }
+// cash = coins + platinum tokens (1 token = 1,000 coins): the GE pays in both since Beyond Max Cash
+function cashOf(c) {
+  return ((c && c.items) || []).reduce((a, i) => a + (i.id === 995 ? i.quantity : i.id === 13204 ? i.quantity * 1000 : 0), 0);
+}
 
 function renderBanners(st) {
   const b = [];
@@ -496,7 +501,7 @@ async function refresh() {
   document.getElementById("meta").innerHTML = st.character
     ? `${T("char")}: <b>${esc(st.character)}</b>` + (m ? ` · ${T("mode")}: <b>${T(m.mode === "members" ? "members" : "f2p")}</b>` : "")
     : "";
-  const cash = bank ? coins(bank) + coins(inv) : (m ? m.capital_gp : null);
+  const cash = bank ? cashOf(bank) + cashOf(inv) : (m ? m.capital_gp : null);
   const freeSlots = ge ? (ge.slots || []).filter(s => s.state === "EMPTY").length : (m ? m.free_slots : null);
   if (!INCOME || Date.now() - INCOME.at > 60000) INCOME = {at: Date.now(), d: await tryJSON("/api/income?period=today")};
   const inc = INCOME.d;

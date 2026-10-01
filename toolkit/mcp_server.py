@@ -25,6 +25,7 @@ if __name__ == "__main__":
     sys.stdout = sys.stderr
 
 import data  # noqa: E402
+import money  # noqa: E402
 from data import PRICES, read_export, resolve_character, human_age, net_sell, tax  # noqa: E402
 from paths import APP_NAME, VERSION, DATA_DIR, RUNELITE_ROOT  # noqa: E402
 
@@ -78,7 +79,8 @@ TOOLS = [
     tool("get_inventory",
          "Current inventory and worn equipment, with live GE value per item.", CHAR_ARG),
     tool("get_bank",
-         "Bank contents valued at live GE prices: total value, coins, most valuable items. "
+         "Bank contents valued at live GE prices: total value, coins, platinum tokens, cash_total "
+         "(coins + 1,000 gp per platinum token: what the player can spend at the Grand Exchange), most valuable items. "
          "The bank export only refreshes when the player opens their bank in game.",
          {**CHAR_ARG,
           "limit": {"type": "integer", "minimum": 1, "maximum": 500,
@@ -204,14 +206,7 @@ def _need(folder, filename, hint):
 
 
 def _gp(n):
-    if n is None:
-        return None
-    n = int(n)
-    if abs(n) >= 1_000_000:
-        return f"{n / 1_000_000:.2f}M"
-    if abs(n) >= 10_000:
-        return f"{n / 1000:.1f}k"
-    return f"{n:,}"
+    return None if n is None else money.gp(n)
 
 
 def _combat_level(stats):
@@ -325,6 +320,8 @@ def t_get_bank(args):
     bank, age = _need(folder, "bank.json", "The bank export appears after opening the bank in game.")
     items, total = _valued(bank.get("items"))
     coins = sum(i["quantity"] for i in items if i["id"] == data.COINS_ID)
+    tokens = sum(i["quantity"] for i in items if i["id"] == data.PLATINUM_TOKEN_ID)
+    cash_total = coins + tokens * data.PLATINUM_TOKEN_VALUE   # what you can really spend: coins + 1,000 x tokens
     search = (args.get("search") or "").lower()
     shown = [i for i in items if search in (i["name"] or "").lower()] if search else items
     shown.sort(key=lambda i: i["value"] or 0, reverse=True)
@@ -333,6 +330,7 @@ def t_get_bank(args):
     return {"character": name, "updated": human_age(age),
             "stale_warning": "Bank is over 1h old; ask the user to open their bank for fresh data." if age and age > 60 else None,
             "total_value": total, "total_value_text": _gp(total), "coins": coins, "coins_text": _gp(coins),
+            "platinum_tokens": tokens, "cash_total": cash_total, "cash_total_text": _gp(cash_total),
             "item_count": len(items), "items": shown[:limit],
             "untradeable_or_unpriced": no_price[:30]}
 
