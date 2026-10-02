@@ -62,9 +62,8 @@ The URL contains a secret: anyone who has it can read your character data and po
    > The code is open, and every release is built by GitHub Actions from this repository.
 2. Keep **"Connect to the Claude desktop app"** checked. That's the one-click Claude setup.
 3. **In RuneLite**, open the wrench icon → **Plugin Hub** and install:
-   - **Character Export** (by DZWNK): stats, bank, inventory, quests…
-   - **OSRS Toolkit Exporter**: Grand Exchange offers and position.
-     > **Not on the Plugin Hub yet:** it is [waiting for approval](https://github.com/runelite/plugin-hub/pull/17152). Until then everything works except live GE offers and position (stats, bank, prices, flips, alerts and Claude are fine).
+   - **OSRS Toolkit Exporter**: levels, quests, achievement diaries, combat achievement totals, inventory, equipment, bank, Grand Exchange offers and position, each switchable in its settings.
+     > **Not on the Plugin Hub yet:** it is [waiting for approval](https://github.com/runelite/plugin-hub/pull/17152). Until then, install **Character Export** (by DZWNK) instead: the toolkit reads its files as a fallback, and everything works except live GE offers and position. Once OSRS Toolkit Exporter is installed, Character Export is no longer needed.
    - *Optional:* **OSRS Toolkit Panel**: a GE price helper with a price chart, plus a side panel that shows the toolkit's bond progress, top flips and alerts inside RuneLite. Also [waiting for approval](https://github.com/runelite/plugin-hub/pull/17208).
 4. Log in and **open your bank once**.
 5. **Restart the Claude desktop app** (quit it from its tray icon, then reopen it) and ask away.
@@ -80,6 +79,8 @@ Once connected, Claude gets these tools (the `stream_*` ones only act on your st
 | `get_status` | "Is everything set up?" |
 | `get_character` | "What should I train next?" (stats, quests, diaries, combat achievements) |
 | `get_position` | "Where am I? What's the next quest step from here?" |
+| `get_quest_info` | "Can I start Animal Magnetism? What am I missing, and in which order?" (requirements, start point, rewards) |
+| `get_available_quests` | "Which quests can I do right now? Which one gives Attack XP?" |
 | `get_inventory` / `get_bank` | "What's my bank worth? What should I sell?" |
 | `get_ge_offers` | "Is my offer priced right? What should I relist at?" |
 | `get_market_opportunities` | "Best flips / alchs for my cash right now" |
@@ -95,7 +96,8 @@ The toolkit adds itself to Claude Desktop's local connector list (`claude_deskto
 ## Where the data comes from
 
 - **Prices:** the free, public [OSRS Wiki real-time prices API](https://prices.runescape.wiki) (crowd-sourced from RuneLite). Margins are after the 2% GE tax.
-- **Your account:** local JSON files written by the two RuneLite plugins in `%USERPROFILE%\.runelite\character-exporter\<name>\`.
+- **Your account:** local JSON files written by **OSRS Toolkit Exporter** in `%USERPROFILE%\.runelite\plugin-data\position-exporter\<name>\`, read from your game client. Files of the Character Export plugin (`%USERPROFILE%\.runelite\character-exporter\<name>\`) are read only as a fallback, when ours are missing.
+- **Quest facts** (requirements, start point, rewards): the game's own quest table, read from your RuneLite client by **OSRS Toolkit Exporter** when its option *Export game quest data* is on (`%USERPROFILE%\.runelite\plugin-data\position-exporter\game_quests.json`). Nothing is copied from a website. Only levels, required quests and quest points are checked (not items).
 - **News:** the official OSRS news feed.
 
 ## Privacy
@@ -124,8 +126,8 @@ Never use any tool to automate gameplay: it breaks Jagex's rules.
 
 1. **Télécharge** le `Setup.exe` dans les [Releases](https://github.com/Gorsokk/osrs-toolkit/releases/latest) et lance-le. Si Windows affiche *« Windows a protégé votre ordinateur »*, clique sur **Informations complémentaires → Exécuter quand même**.
 2. Laisse cochée l'option **« Connecter à l'application Claude »**.
-3. Dans RuneLite, **clé à molette → Plugin Hub** : installe **Character Export** et **OSRS Toolkit Exporter**.
-   > **OSRS Toolkit Exporter n'est pas encore sur le Plugin Hub** ([en attente d'approbation](https://github.com/runelite/plugin-hub/pull/17152)). D'ici là, tout fonctionne sauf les offres GE en direct et la position.
+3. Dans RuneLite, **clé à molette → Plugin Hub** : installe **OSRS Toolkit Exporter** (niveaux, quêtes, journaux, total des hauts faits de combat, inventaire, équipement, banque, offres GE et position).
+   > **OSRS Toolkit Exporter n'est pas encore sur le Plugin Hub** ([en attente d'approbation](https://github.com/runelite/plugin-hub/pull/17152)). D'ici là, installe **Character Export** à la place : l'outil lit ses fichiers en secours, et tout fonctionne sauf les offres GE en direct et la position. Une fois OSRS Toolkit Exporter installé, Character Export n'est plus nécessaire.
    *Optionnel :* **OSRS Toolkit Panel** (aide aux prix GE avec graphique, et panneau avec l'objectif bond, les flips et les alertes dans RuneLite), aussi [en attente d'approbation](https://github.com/runelite/plugin-hub/pull/17208).
 4. Connecte-toi et ouvre ta banque une fois.
 5. **Redémarre l'application Claude**, puis pose tes questions : *« Comment va mon GE ? »*, *« Où suis-je, quelle est la prochaine étape de ma quête ? »*

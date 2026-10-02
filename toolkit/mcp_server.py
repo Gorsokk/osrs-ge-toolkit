@@ -26,13 +26,15 @@ if __name__ == "__main__":
 
 import data  # noqa: E402
 import money  # noqa: E402
+import quests  # noqa: E402
 from data import PRICES, read_export, resolve_character, human_age, net_sell, tax  # noqa: E402
+import paths  # noqa: E402
 from paths import APP_NAME, VERSION, DATA_DIR, RUNELITE_ROOT  # noqa: E402
 
 SUPPORTED_PROTOCOLS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]
 
 INSTRUCTIONS = """OSRS Toolkit gives you read-only access to the user's Old School RuneScape character \
-(exported locally by the RuneLite plugins "Character Export" and "OSRS Toolkit Exporter") and to live \
+(exported locally by the RuneLite plugin "OSRS Toolkit Exporter") and to live \
 Grand Exchange prices from the OSRS Wiki.
 
 - Start with get_status if you are unsure what data exists or how fresh it is; mention stale data \
@@ -42,6 +44,9 @@ Grand Exchange prices from the OSRS Wiki.
 identify the location; y > 9000 usually means an underground/dungeon area.
 - You can advise, plan and explain. Never help automate gameplay (bots, macros, input automation): \
 it breaks Jagex's rules and gets accounts banned.
+- Quests: get_quest_info and get_available_quests read the game's own quest table (requirements, start \
+point, rewards) and compare it with the player's levels and quests. Prefer them to memory; they only check \
+levels, quests and quest points (not items): say so when it matters.
 - Answer in the user's language.
 - Stream co-host (stream_* tools): when the user is live on Twitch, viewers ask questions with !ask. \
 Read them with stream_get_chat, answer with stream_say (short: 1-2 sentences, under 400 characters, \
@@ -73,6 +78,36 @@ TOOLS = [
          "achievement diaries and combat achievements progress.",
          {**CHAR_ARG, "include_all_quests": {"type": "boolean",
                                              "description": "Also list every not-started quest (long). Default false."}}),
+    tool("get_combat_achievements",
+         "The player's combat achievements: total tasks done and points (read from the game by OSRS Toolkit "
+         "Exporter). Per-tier counts and task names only exist in the older Character Export file, which can be "
+         "wrong (see its caution). Use it for 'how many combat achievements', 'which tasks am I missing in easy'.",
+         {**CHAR_ARG,
+          "tier": {"type": "string", "enum": ["easy", "medium", "hard", "elite", "master", "grandmaster"],
+                   "description": "List the tasks of this tier. Without it: only the count per tier."},
+          "status": {"type": "string", "enum": ["todo", "done", "all"],
+                     "description": "Which tasks to list (with a tier). Default 'todo'."},
+          "search": {"type": "string", "description": "Only tasks whose name contains this text."},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 200, "description": "Tasks to list. Default 25."}}),
+    tool("get_quest_info",
+         "One quest from the game's own quest table: members or not, difficulty, length, quest points, required "
+         "levels / quests / quest points, recommended levels, XP rewards, start point (tile, map link, start NPC) "
+         "and the game's own reason to do it. With the player's data: their state on it, what they still lack, "
+         "and the unfinished quests to do first, in order. Use it for 'can I start X', 'what do I need for X', "
+         "'where does X start', 'in which order'. Needs the 'OSRS Toolkit Exporter' plugin with "
+         "'Export game quest data' on.",
+         {**CHAR_ARG, "quest": {"type": "string", "description": "Quest name (case-insensitive; part of the name "
+                                "works when only one quest matches)."}},
+         ["quest"]),
+    tool("get_available_quests",
+         "Quests the player has not finished and can start now, judged on the requirements the game's quest table "
+         "lists (levels, quests, quest points), plus the ones missing a single requirement. Optionally only quests "
+         "that give XP in one skill (sorted by that XP), or only free-to-play quests. Use it for 'which quests can I "
+         "do', 'which quest gives Attack XP'.",
+         {**CHAR_ARG,
+          "xp_skill": {"type": "string", "description": "Only quests rewarding XP in this skill (e.g. 'Attack')."},
+          "free_only": {"type": "boolean", "description": "Only free-to-play quests. Default false."},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "Quests per list. Default 20."}}),
     tool("get_position",
          "The player's live location in game (world tile x/y/plane, region, world) with a map link. "
          "Useful for 'where am I', quest steps, navigation.", CHAR_ARG),
@@ -193,7 +228,7 @@ def _char(args):
         if args.get("character"):
             raise ToolError(f"No exported character named '{args['character']}'. "
                             f"Available: {', '.join(data.list_characters()) or 'none'}.")
-        raise ToolError("No game data found yet. The user needs RuneLite with the 'Character Export' plugin "
+        raise ToolError("No game data found yet. The user needs RuneLite with the 'OSRS Toolkit Exporter' plugin "
                         "(Plugin Hub), then to log in and open their bank once. Call get_status for details.")
     return name, folder
 
@@ -236,13 +271,16 @@ def t_get_status(args):
     out = {"toolkit": f"{APP_NAME} {VERSION}", "exports_folder": str(RUNELITE_ROOT),
            "characters": chars, "selected_character": name, "files": {}, "problems": []}
     if not folder:
-        out["problems"].append("No exports found. Install RuneLite plugin 'Character Export' from the Plugin Hub, "
+        out["problems"].append("No exports found. Install RuneLite plugin 'OSRS Toolkit Exporter' from the Plugin Hub, "
                                "log in, and open the bank once.")
         return out
     for fn, (what, plugin) in data.EXPORT_FILES.items():
         d, age = read_export(folder, fn)
         out["files"][fn] = {"contains": what, "written_by": plugin,
                             "present": d is not None, "updated": human_age(age) if d is not None else None}
+    out["game_data"] = {"game_quests.json": {"contains": "the game's quest table (requirements, start, rewards)",
+                                             "written_by": "OSRS Toolkit Exporter (option 'Export game quest data')",
+                                             "present": paths.GAME_QUESTS_FILE.is_file()}}
     f = out["files"]
     if not f["position.json"]["present"] or not f["ge_offers.json"]["present"]:
         out["problems"].append("No live position / GE offers: install the 'OSRS Toolkit Exporter' plugin from the "
@@ -258,7 +296,7 @@ def t_get_status(args):
 
 def t_get_character(args):
     name, folder = _char(args)
-    ch, age = _need(folder, "character.json", "Needs the 'Character Export' plugin and a login.")
+    ch, age = _need(folder, "character.json", "Needs the 'OSRS Toolkit Exporter' plugin and a login.")
     stats = ch.get("stats", {})
     skills = {k: {"level": v.get("real_level"), "boosted": v.get("boosted_level"), "xp": v.get("experience")}
               for k, v in stats.items()}
@@ -278,14 +316,210 @@ def t_get_character(args):
             out["quests"]["not_started"] = [x["name"] for x in quests if x.get("state") == "NOT_STARTED"]
     d, _ = read_export(folder, "diaries.json")
     if d:
-        out["diaries"] = {region: {tier: (("complete" if v.get("complete") else f"{v.get('tasks_done', 0)} tasks done"))
+        out["diaries"] = {region: {tier: ("complete" if v.get("complete") else
+                                          f"{v['tasks_done']} tasks done" if "tasks_done" in v else "not complete")
                                    for tier, v in tiers.items()}
                           for region, tiers in (d.get("diaries") or {}).items()}
     ca, _ = read_export(folder, "combat_achievements.json")
     if ca:
-        out["combat_achievements"] = {tier: f"{v.get('tasks_completed', 0)}/{v.get('tasks_total', '?')}"
-                                             + (" (complete)" if v.get("complete") else "")
-                                      for tier, v in (ca.get("tiers") or {}).items()}
+        summary = ca.get("summary") or {}
+        out["combat_achievements"] = {"total_tasks_completed": summary.get("total_tasks_completed")}
+        if summary.get("points") is not None:
+            out["combat_achievements"]["points"] = summary["points"]
+        tiers = ca.get("tiers") or {}
+        if tiers:   # per-tier detail: only in Character Export's file, which can be wrong (see get_combat_achievements)
+            out["combat_achievements"]["tiers"] = {
+                tier: f"{v.get('tasks_completed', 0)}/{v.get('tasks_total', '?')}" + (" (complete)" if v.get("complete") else "")
+                for tier, v in tiers.items()}
+            out["combat_achievements"]["caution"] = _CA_CAUTION
+    return out
+
+
+# Checked on 2 Oct 2026 against the game's own tab (Character Export 0.6.0): its task list was 18 tasks behind the game,
+# every task really done was flagged not done, and only the overall total matched. So say it with every answer.
+_CA_CAUTION = ("Per-tier counts and task names come from the Character Export plugin, whose task list can lag behind the "
+               "game (new tasks shift it): they can be wrong. total_tasks_completed matched the game when last checked. "
+               "The in-game Combat Achievements tab is the reference.")
+
+
+def t_get_combat_achievements(args):
+    name, folder = _char(args)
+    ca, age = _need(folder, "combat_achievements.json", "Needs the 'OSRS Toolkit Exporter' RuneLite plugin and a login.")
+    tiers = ca.get("tiers") or {}
+    summary = ca.get("summary") or {}
+    out = {"character": name, "updated": human_age(age),
+           "total_tasks_completed": summary.get("total_tasks_completed"),
+           "named_data_available": bool(summary.get("named_data_available"))}
+    if summary.get("points") is not None:
+        out["points"] = summary["points"]
+    if not tiers:
+        # OSRS Toolkit Exporter: the total and the points come straight from the game; no per-tier detail yet.
+        out["note"] = ("Per-tier counts and task names are not exported yet: only the total and the points, read "
+                       "from the game. The in-game Combat Achievements tab has the detail.")
+        if args.get("tier"):
+            out["tier"] = str(args.get("tier")).lower()
+            out["tasks"] = []
+        return out
+    out["caution"] = _CA_CAUTION
+    out["tiers"] = {tier: f"{v.get('tasks_completed', 0)}/{v.get('tasks_total', '?')}"
+                          + (" (complete)" if v.get("complete") else "") for tier, v in tiers.items()}
+    tier = str(args.get("tier") or "").lower()
+    if not tier:
+        return out
+    if tier not in tiers:
+        raise ToolError(f"Unknown tier '{tier}'. Tiers: {', '.join(tiers) or 'none'}.")
+    if not out["named_data_available"]:
+        out["note"] = "The task names are not in the export yet: open the Combat Achievements tab once in game."
+    status = str(args.get("status") or "todo").lower()
+    if status not in ("todo", "done", "all"):
+        raise ToolError("status must be 'todo', 'done' or 'all'.")
+    search = str(args.get("search") or "").lower()
+    try:
+        limit = max(1, min(200, int(args.get("limit") or 25)))
+    except (TypeError, ValueError):
+        limit = 25
+    tasks = [x for x in tiers[tier].get("tasks") or []
+             if (status == "all" or (status == "done") == bool(x.get("complete")))
+             and search in str(x.get("name") or "").lower()]
+    out.update({"tier": tier, "status": status, "matching": len(tasks),
+                "tasks": [{"name": x.get("name"), "complete": bool(x.get("complete"))} for x in tasks[:limit]]})
+    if len(tasks) > limit:
+        out["truncated"] = True
+    return out
+
+
+# ------------------------------------------------------------------- quests ---
+_QUEST_HINT = ("The game's quest data is missing: in RuneLite, open the settings of the 'OSRS Toolkit Exporter' "
+               "plugin, turn on 'Export game quest data', then log in (the file is written within a few seconds).")
+
+
+def _quest_table():
+    try:
+        return quests.load(paths.GAME_QUESTS_FILE)
+    except quests.QuestDataError as e:
+        raise ToolError(_QUEST_HINT if str(e) == "missing" else str(e)) from None
+
+
+def _quest_player(args):
+    """(name, Player, notes). Works without any character data: the facts are then given without comparison."""
+    name, folder = resolve_character(args.get("character"))
+    if args.get("character") and not folder:
+        raise ToolError(f"No exported character named '{args['character']}'. "
+                        f"Available: {', '.join(data.list_characters()) or 'none'}.")
+    notes = []
+    ch = qs = None
+    if folder:
+        ch, _ = read_export(folder, "character.json")
+        qs, _ = read_export(folder, "quests.json")
+    if ch is None:
+        notes.append("No level data (character.json): levels not compared.")
+    if qs is None:
+        notes.append("No quest states (quests.json): quests and quest points not compared.")
+    return name, quests.Player(ch, qs), notes
+
+
+def _source(table):
+    return {"file": "game_quests.json (OSRS Toolkit Exporter, read from the game client)",
+            "exported_at": table.exported_at, "client_revision": table.client_revision}
+
+
+def t_get_quest_info(args):
+    table = _quest_table()
+    try:
+        quest, matched_by = table.find(args.get("quest"))
+    except LookupError as e:
+        raise ToolError(str(e)) from None
+    name, player, notes = _quest_player(args)
+    out = {"quest": quests.describe(quest), "matched_by": matched_by, "character": name}
+    qp = player.quest_points(table)
+    state = player.state(quest["name"])
+    you = {"state": state, "quest_points": qp}
+    if state == quests.FINISHED:
+        you["note"] = "Already finished."
+    else:
+        m = quests.missing(quest, player, table, qp)
+        you["requirements_met"] = quests.is_met(m) if not m["unknown"] else None
+        you["missing"] = {k: v for k, v in m.items() if v}
+        todo, levels = quests.chain(quest, player, table)
+        if todo:
+            you["quests_to_do_first"] = [q["name"] for q in todo]
+            you["levels_needed_for_the_whole_chain"] = levels
+    out["you"] = you
+    out["limits"] = quests.LIMITS
+    if notes:
+        out["notes"] = notes
+    out["source"] = _source(table)
+    return out
+
+
+def _skill_arg(value):
+    if not value:
+        return None
+    v = str(value).strip().lower()
+    for s in quests.SKILLS:
+        if s.lower() == v or (len(v) >= 3 and s.lower().startswith(v)):
+            return s
+    raise ToolError(f"Unknown skill '{value}'. Skills: {', '.join(quests.SKILLS)}.")
+
+
+def t_get_available_quests(args):
+    table = _quest_table()
+    name, player, notes = _quest_player(args)
+    if player.levels is None or player.states is None:
+        raise ToolError("Needs the player's levels and quest states from the 'OSRS Toolkit Exporter' RuneLite plugin "
+                        "(log in once). " + " ".join(notes))
+    skill = _skill_arg(args.get("xp_skill"))
+    try:
+        limit = max(1, min(100, int(args.get("limit") or 20)))
+    except (TypeError, ValueError):
+        limit = 20
+    qp = player.quest_points(table)
+    ready, almost = [], []
+    for q in table.quests:
+        if player.state(q["name"]) == quests.FINISHED:
+            continue
+        if args.get("free_only") and q["members"]:
+            continue
+        xp = sum(r["xp"] or 0 for r in q["xp_rewards"] if r["skill"] == skill) if skill else None
+        if skill and not xp:
+            continue
+        m = quests.missing(q, player, table, qp)
+        if m["unknown"]:
+            continue
+        lacks = ([f"{r['skill']} {r['need']} (you have {r['have']})" for r in m["levels"]]
+                 + [f"quest {r['name']}" for r in m["quests"]]
+                 + ([f"{m['quest_points']['need']} quest points (you have {m['quest_points']['have']})"]
+                    if m["quest_points"] else []))
+        item = {"name": q["name"], "members": q["members"],
+                "difficulty": quests.label(quests.DIFFICULTY, q["difficulty_code"]),
+                "length": quests.label(quests.LENGTH, q["length_code"]),
+                "quest_points": q["quest_points"], "state": player.state(q["name"])}
+        if skill:
+            item["xp"] = xp
+        if not lacks:
+            ready.append((q, item))
+        elif len(lacks) == 1:
+            item["missing"] = lacks[0]
+            almost.append((q, item))
+
+    def order(pair):
+        q, item = pair
+        started = 0 if item["state"] == quests.IN_PROGRESS else 1
+        if skill:
+            return (started, -item["xp"], q["name"])
+        return (started, q["difficulty_code"] if q["difficulty_code"] is not None else 9,
+                q["length_code"] if q["length_code"] is not None else 9, q["name"])
+
+    ready.sort(key=order)
+    almost.sort(key=order)
+    out = {"character": name, "quest_points": qp, "xp_skill": skill, "free_only": bool(args.get("free_only")),
+           "can_start_count": len(ready), "can_start": [i for _, i in ready[:limit]],
+           "one_requirement_missing_count": len(almost),
+           "one_requirement_missing": [i for _, i in almost[:limit]],
+           "order": ("in progress first, then by " + ("XP in that skill" if skill else "difficulty, then length")),
+           "limits": quests.LIMITS, "source": _source(table)}
+    if len(ready) > limit or len(almost) > limit:
+        out["truncated"] = True
     return out
 
 
@@ -302,7 +536,7 @@ def t_get_position(args):
 
 def t_get_inventory(args):
     name, folder = _char(args)
-    inv, inv_age = _need(folder, "inventory.json", "Needs the 'Character Export' plugin.")
+    inv, inv_age = _need(folder, "inventory.json", "Needs the 'OSRS Toolkit Exporter' plugin.")
     items, total = _valued(inv.get("items"))
     out = {"character": name, "inventory_updated": human_age(inv_age),
            "inventory": items, "inventory_value": total, "inventory_value_text": _gp(total),
@@ -611,6 +845,8 @@ HANDLERS = {
     "stream_skip_question": t_stream_skip_question, "stream_show_scene": t_stream_show_scene,
     "stream_status": t_stream_status,
     "get_status": t_get_status, "get_character": t_get_character, "get_position": t_get_position,
+    "get_combat_achievements": t_get_combat_achievements,
+    "get_quest_info": t_get_quest_info, "get_available_quests": t_get_available_quests,
     "get_inventory": t_get_inventory, "get_bank": t_get_bank, "get_ge_offers": t_get_ge_offers,
     "get_market_opportunities": t_get_market_opportunities, "get_item_price": t_get_item_price,
     "get_recent_alerts": t_get_recent_alerts, "get_income": t_get_income,

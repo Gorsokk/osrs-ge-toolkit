@@ -8,9 +8,9 @@ Runs in the background, next to the clock:
   - "Play": opens RuneLite (optionally when the toolkit starts)
 Right-click the tray icon for the menu (dashboard, settings, Connect to Claude, quit).
 
-Game data comes from two RuneLite Plugin Hub plugins:
-  - "Character Export" (by DZWNK): stats, bank, inventory, quests...
-  - "OSRS Toolkit Exporter" (this project): position + Grand Exchange offers
+Game data comes from our RuneLite plugin "OSRS Toolkit Exporter" (this project): levels, quests, diaries,
+combat achievement totals, inventory, equipment, bank, position and Grand Exchange offers. Files of the third-party
+plugin "Character Export" are read only as a fallback, when ours are missing (see paths.export_path).
 
 Flags: --background (start silently, used by "Start with Windows"), --play (also open RuneLite,
 even if the toolkit is already running), --no-tray (dev/testing).
@@ -25,7 +25,7 @@ import webbrowser
 import data
 import settings
 from i18n import t
-from paths import APP_NAME, VERSION, DATA_DIR, LOG_FILE, RESOURCE_DIR, GITHUB_REPO
+from paths import APP_NAME, VERSION, DATA_DIR, LOG_FILE, RESOURCE_DIR, GITHUB_REPO, export_path
 
 MUTEX_NAME = "OSRSGEToolkit"     # also used by the installer to close the app before updating
 FIRST_RUN_FLAG = DATA_DIR / "_first_run_done"
@@ -82,7 +82,7 @@ class App:
         while not self.stop.is_set():
             s = settings.load()
             name, folder = data.resolve_character(None)
-            if folder and (folder / "bank.json").exists() and (folder / "character.json").exists():
+            if folder and export_path(folder, "bank.json").exists() and export_path(folder, "character.json").exists():
                 try:
                     ms.setup_paths(name)
                     ms.main()

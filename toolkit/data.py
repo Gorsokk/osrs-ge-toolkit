@@ -10,7 +10,7 @@ import time
 import urllib.request
 from datetime import datetime, timezone
 
-from paths import RUNELITE_ROOT, DATA_DIR, USER_AGENT, export_path
+from paths import RUNELITE_ROOT, EXPORTER_ROOT, EXPORTER_FILES, DATA_DIR, USER_AGENT, export_path
 from money import (COINS_ID, PLATINUM_TOKEN_ID, PLATINUM_TOKEN_VALUE,  # noqa: F401 (re-exported: one copy of these rules)
                    cash_of, net_sell, split_cash, tax)
 
@@ -21,13 +21,13 @@ MAPPING_MAX_AGE = 7 * 24 * 3600
 
 # file name -> (what it is, which plugin writes it)
 EXPORT_FILES = {
-    "character.json": ("stats, world, membership", "Character Export"),
-    "bank.json": ("bank (updates when you open your bank)", "Character Export"),
-    "inventory.json": ("inventory", "Character Export"),
-    "equipment.json": ("worn equipment", "Character Export"),
-    "quests.json": ("quests", "Character Export"),
-    "diaries.json": ("achievement diaries", "Character Export"),
-    "combat_achievements.json": ("combat achievements", "Character Export"),
+    "character.json": ("stats, world, membership", "OSRS Toolkit Exporter"),
+    "bank.json": ("bank (updates when you open your bank)", "OSRS Toolkit Exporter"),
+    "inventory.json": ("inventory", "OSRS Toolkit Exporter"),
+    "equipment.json": ("worn equipment", "OSRS Toolkit Exporter"),
+    "quests.json": ("quests", "OSRS Toolkit Exporter"),
+    "diaries.json": ("achievement diaries", "OSRS Toolkit Exporter"),
+    "combat_achievements.json": ("combat achievements", "OSRS Toolkit Exporter"),
     "position.json": ("live position", "OSRS Toolkit Exporter"),
     "ge_offers.json": ("Grand Exchange offers", "OSRS Toolkit Exporter"),
     "market.json": ("flip/alch scan", "OSRS GE Toolkit"),
@@ -94,17 +94,29 @@ def human_age(minutes):
 
 # -------------------------------------------------------------- characters ---
 def list_characters():
-    """Exported characters, most recently active first."""
-    if not RUNELITE_ROOT.exists():
-        return []
-    chars = []
-    for p in RUNELITE_ROOT.iterdir():
-        if not p.is_dir():
+    """Exported characters (OSRS Toolkit Exporter, or Character Export as a fallback), most recently active first."""
+    latest = {}
+    for root in (EXPORTER_ROOT, RUNELITE_ROOT):
+        if not root.exists():
             continue
-        mtimes = [f.stat().st_mtime for f in p.glob("*.json")]
-        if mtimes:
-            chars.append((max(mtimes), p.name))
-    return [name for _, name in sorted(chars, reverse=True)]
+        for p in root.iterdir():
+            if not p.is_dir():
+                continue
+            mtimes = [f.stat().st_mtime for f in p.glob("*.json") if f.name in EXPORTER_FILES]
+            if mtimes:
+                latest[p.name] = max(latest.get(p.name, 0), max(mtimes))
+    return [name for name, _ in sorted(latest.items(), key=lambda kv: kv[1], reverse=True)]
+
+
+def _folder(name):
+    """The toolkit's own folder for a character (market.json, alerts.jsonl...). Created when the character is only
+    known from OSRS Toolkit Exporter, so the toolkit can write there."""
+    folder = RUNELITE_ROOT / name
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    return folder
 
 
 def resolve_character(name=None):
@@ -116,16 +128,16 @@ def resolve_character(name=None):
     if name:
         for c in chars:
             if c.lower() == str(name).strip().lower():
-                return c, RUNELITE_ROOT / c
+                return c, _folder(c)
         return None, None
     try:
         import settings  # optional: the user's choice in the dashboard
         chosen = settings.load().get("character")
         if chosen in chars:
-            return chosen, RUNELITE_ROOT / chosen
+            return chosen, _folder(chosen)
     except Exception:
         pass
-    return chars[0], RUNELITE_ROOT / chars[0]
+    return chars[0], _folder(chars[0])
 
 
 def read_export(folder, filename):

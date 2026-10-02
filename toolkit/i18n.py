@@ -92,12 +92,12 @@ STRINGS = {
                      "fr": "Il est dans la zone de notification (en bas à droite, près de l'horloge). "
                            "Clic droit sur l'icône pour le menu."},
     "setup_title": {"en": "OSRS Toolkit – one-time setup", "fr": "OSRS Toolkit – installation"},
-    "setup_body": {"en": "No game data yet. In RuneLite: wrench icon -> Plugin Hub -> install \"Character Export\" "
-                         "and \"OSRS Toolkit Exporter\", then log in and open your bank once. The toolkit will pick it up "
-                         "automatically.",
+    "setup_body": {"en": "No game data yet. In RuneLite: wrench icon -> Plugin Hub -> install \"OSRS Toolkit Exporter\" "
+                         "(or \"Character Export\" while the Exporter is not on the Plugin Hub yet), then log in and open "
+                         "your bank once. The toolkit will pick it up automatically.",
                    "fr": "Aucune donnée de jeu pour l'instant. Dans RuneLite : clé à molette -> Plugin Hub -> installe "
-                         "« Character Export » et « OSRS Toolkit Exporter », puis connecte-toi et ouvre ta banque une fois. "
-                         "L'outil le détectera tout seul."},
+                         "« OSRS Toolkit Exporter » (ou « Character Export » tant que l'Exporter n'est pas encore sur le "
+                         "Plugin Hub), puis connecte-toi et ouvre ta banque une fois. L'outil le détectera tout seul."},
     "claude_done_title": {"en": "Connected to Claude", "fr": "Connecté à Claude"},
     "claude_done_body": {"en": "Restart the Claude desktop app, then ask it about your account "
                                "(\"how's my GE doing?\").",

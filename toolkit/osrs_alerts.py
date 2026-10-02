@@ -433,7 +433,7 @@ class Alerts:
         Names rather than ids, so noted items count too."""
         if not self.export_dir:
             return None, None
-        bank_path = self.export_dir / "bank.json"
+        bank_path = export_path(self.export_dir, "bank.json")
         try:
             bank_mtime = bank_path.stat().st_mtime
         except OSError:
@@ -446,7 +446,7 @@ class Alerts:
                 held[key] = held.get(key, 0) + int(qty)
 
         for fn in ("bank.json", "inventory.json", "equipment.json"):
-            for it in (load_json(self.export_dir / fn, {}) or {}).get("items", []) or []:
+            for it in (load_json(export_path(self.export_dir, fn), {}) or {}).get("items", []) or []:
                 add(it.get("name"), it.get("quantity", 1))
         ge = load_json(export_path(self.export_dir, "ge_offers.json"), {}) or {}
         for sl in ge.get("slots", []) or []:

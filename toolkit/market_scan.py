@@ -139,7 +139,7 @@ def find_export_dir(char_arg=None):
     name, folder = data.resolve_character(char_arg)
     if not folder:
         raise RuntimeError(
-            f"No game data in {RUNELITE_ROOT}. Install the RuneLite plugin 'Character Export' "
+            "No game data yet. Install the RuneLite plugin 'OSRS Toolkit Exporter' "
             "(Plugin Hub), log in and open your bank once.")
     return folder
 
@@ -149,9 +149,9 @@ def setup_paths(char_arg=None):
     global CHAR_NAME, EXPORT_DIR, CHARACTER_JSON, BANK_JSON, INVENTORY_JSON, OUTPUT_JSON, MAPPING_CACHE, GE_OFFERS_JSON
     EXPORT_DIR = find_export_dir(char_arg)
     CHAR_NAME = EXPORT_DIR.name
-    CHARACTER_JSON = EXPORT_DIR / "character.json"
-    BANK_JSON = EXPORT_DIR / "bank.json"
-    INVENTORY_JSON = EXPORT_DIR / "inventory.json"
+    CHARACTER_JSON = export_path(EXPORT_DIR, "character.json")   # OSRS Toolkit Exporter first
+    BANK_JSON = export_path(EXPORT_DIR, "bank.json")
+    INVENTORY_JSON = export_path(EXPORT_DIR, "inventory.json")
     OUTPUT_JSON = EXPORT_DIR / "market.json"
     GE_OFFERS_JSON = export_path(EXPORT_DIR, "ge_offers.json")  # written by OSRS Toolkit Exporter
     MAPPING_CACHE = EXPORT_DIR / "_mapping_cache.json"

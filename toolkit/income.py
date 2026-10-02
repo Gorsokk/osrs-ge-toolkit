@@ -92,7 +92,7 @@ def snapshot(folder):
         elif s.get("type") == "SELL" and s.get("item_id") is not None:
             items += left * (PRICES.unit_value(s["item_id"]) or 0)
     try:
-        bank_ts = int((folder / "bank.json").stat().st_mtime)
+        bank_ts = int(export_path(folder, "bank.json").stat().st_mtime)
     except OSError:
         bank_ts = None
     return {"cash": int(cash), "items": int(items), "bank_ts": bank_ts}
