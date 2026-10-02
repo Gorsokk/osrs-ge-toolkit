@@ -29,7 +29,7 @@ def row(row_id, name, *, members=True, diff=0, length=0, qp=1, levels=(), req=()
             "required_quest_rows": list(req), "required_quests": [], "required_quest_points": req_qp,
             "requirement_combat_raw": 3, "prerequisite_direct": 0, "prerequisite_indirect": 0,
             "start": {"x": 3200 + row_id, "y": 3200, "plane": 0, "npc_ids": list(npcs), "npc_names": list(names)},
-            "xp_rewards": [{"skill_id": s, "skill": n, "xp": x} for s, n, x in xp],
+            "xp_rewards": [{"skill_id": s, "skill": n, "xp": x * 10} for s, n, x in xp],   # the table stores tenths
             "unstarted_state": 0, "end_state": 10, "recommendation_reason": f"Reason {name}."}
 
 
@@ -114,6 +114,29 @@ class Table(unittest.TestCase):
         with self.assertRaises(quests.QuestDataError) as cm:
             quests.load(Path(tempfile.gettempdir()) / "no-such-dir-xyz" / "game_quests.json")
         self.assertEqual(str(cm.exception), "missing")
+
+
+class ExperienceInTenths(unittest.TestCase):
+    """The game's Quest table stores experience in tenths. Real case (2 Oct 2026): Goblin Diplomacy's table value
+    is 2000 in Crafting, and a player who had done it had 200 Crafting XP in total."""
+
+    def test_the_real_case(self):
+        self.assertEqual(quests.game_xp(2000), 200)
+
+    def test_values_that_are_not_whole(self):
+        self.assertEqual(quests.game_xp(14062), 1406.2)
+        self.assertEqual(quests.game_xp(200069), 20006.9)
+
+    def test_missing_or_odd_values_stay_unknown(self):
+        for raw in (None, "2000", True, [2000]):
+            self.assertIsNone(quests.game_xp(raw))
+
+    def test_the_table_reader_converts(self):
+        raw = dict(GAME, quests=[row(1, "Goblin Diplomacy", members=False, xp=[(12, "Crafting", 200)])])
+        t = quests.QuestTable(json.loads(json.dumps(raw)))
+        self.assertEqual(t.by_name["goblin diplomacy"]["xp_rewards"],
+                         [{"skill": "Crafting", "xp": 200}])
+        self.assertEqual(raw["quests"][0]["xp_rewards"][0]["xp"], 2000)   # what the file holds
 
 
 class Comparison(unittest.TestCase):

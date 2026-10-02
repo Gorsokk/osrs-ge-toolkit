@@ -16,6 +16,15 @@ import json
 import re
 from pathlib import Path
 
+def game_xp(raw):
+    """Experience from the game's Quest table, which stores it in TENTHS of a point. Checked on 2 Oct 2026 against a real account: after Goblin Diplomacy (table value 2000 in Crafting),
+    the player had 200 Crafting XP in total. Whole numbers come back as int, the rest with one decimal."""
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return None
+    value = raw / 10
+    return int(value) if value == int(value) else round(value, 1)
+
+
 # The game's stat ids (the order of the skills in the game). 23 is not named by the client the file was written
 # with (the export says "skill#23"); its quests are the Sailing quests (Prying Times, Current Affairs, The Red Reef),
 # and Character Export lists "Sailing" as the 24th skill.
@@ -128,7 +137,7 @@ class QuestTable:
             "recommended_levels": self._levels(q.get("recommended_levels")),
             "required_quests": req,
             "required_quest_points": q.get("required_quest_points") or 0,
-            "xp_rewards": [{"skill": skill_name(x.get("skill_id"), x.get("skill")), "xp": x.get("xp")}
+            "xp_rewards": [{"skill": skill_name(x.get("skill_id"), x.get("skill")), "xp": game_xp(x.get("xp"))}
                            for x in q.get("xp_rewards") or [] if isinstance(x, dict)],
             "start": {"x": start.get("x"), "y": start.get("y"), "plane": start.get("plane", 0),
                       "npc_ids": list(start.get("npc_ids") or []), "npc_names": npcs},
