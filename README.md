@@ -118,6 +118,12 @@ The toolkit only reads data that RuneLite plugins export and public price data. 
 
 Never use any tool to automate gameplay: it breaks Jagex's rules.
 
+## Support and feedback
+
+OSRS Toolkit, OSRS Toolkit Exporter and OSRS Toolkit Panel are free and stay free.
+If they help you, you can [support Gorsok on Ko-fi](https://ko-fi.com/gorsok), or just say thanks there: kind words are read and appreciated.
+Found a bug or have an idea? [Open an issue](https://github.com/Gorsokk/osrs-toolkit/issues).
+
 ---
 
 ## Français
@@ -137,6 +143,8 @@ L'interface est en anglais ou en français : dashboard → **Paramètres → Lan
 **Streamers :** dashboard → **Paramètres → Stream**. Entre ta chaîne Twitch, puis ajoute les 4 adresses affichées comme sources navigateur dans Meld Studio ou OBS. Les viewers utilisent `!ge`, `!bond`, `!flip`, `!ask`… et les réponses de Claude s'affichent à l'écran.
 
 Le bouton **▶ Jouer** ouvre RuneLite. Dans **Paramètres → RuneLite**, tu peux aussi faire ouvrir le jeu en même temps que l'outil. Si tu utilisais les anciens scripts (`run_scan.bat` / `run_alerts.bat`), l'app reprend leur historique au premier lancement. Ensuite, tu n'as plus besoin que de l'app.
+
+**Soutien et retours :** les outils sont gratuits et le restent. S'ils t'aident, tu peux [soutenir Gorsok sur Ko-fi](https://ko-fi.com/gorsok), ou simplement y laisser un mot : chaque message est lu. Un bug ou une idée ? [Ouvre une issue](https://github.com/Gorsokk/osrs-toolkit/issues).
 
 ## For developers
 
