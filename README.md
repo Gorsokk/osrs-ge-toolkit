@@ -63,8 +63,8 @@ The URL contains a secret: anyone who has it can read your character data and po
 2. Keep **"Connect to the Claude desktop app"** checked. That's the one-click Claude setup.
 3. **In RuneLite**, open the wrench icon → **Plugin Hub** and install:
    - **OSRS Toolkit Exporter**: levels, quests, achievement diaries, combat achievement totals, inventory, equipment, bank, Grand Exchange offers and position, each switchable in its settings.
-     > **Not on the Plugin Hub yet:** it is [waiting for approval](https://github.com/runelite/plugin-hub/pull/17152). Until then, install **Character Export** (by DZWNK) instead: the toolkit reads its files as a fallback, and everything works except live GE offers and position. Once OSRS Toolkit Exporter is installed, Character Export is no longer needed.
-   - *Optional:* **OSRS Toolkit Panel**: a GE price helper with a price chart, plus a side panel that shows the toolkit's bond progress, top flips and alerts inside RuneLite. Also [waiting for approval](https://github.com/runelite/plugin-hub/pull/17208).
+     > Already using **Character Export**? You can uninstall it: OSRS Toolkit Exporter writes everything the toolkit needs. (The toolkit still reads Character Export's files as a fallback, only when ours are missing.)
+   - *Optional:* **OSRS Toolkit Panel**: a GE price helper with a price chart, plus a side panel that shows the toolkit's bond progress, top flips and alerts inside RuneLite.
 4. Log in and **open your bank once**.
 5. **Restart the Claude desktop app** (quit it from its tray icon, then reopen it) and ask away.
 
@@ -127,8 +127,8 @@ Never use any tool to automate gameplay: it breaks Jagex's rules.
 1. **Télécharge** le `Setup.exe` dans les [Releases](https://github.com/Gorsokk/osrs-toolkit/releases/latest) et lance-le. Si Windows affiche *« Windows a protégé votre ordinateur »*, clique sur **Informations complémentaires → Exécuter quand même**.
 2. Laisse cochée l'option **« Connecter à l'application Claude »**.
 3. Dans RuneLite, **clé à molette → Plugin Hub** : installe **OSRS Toolkit Exporter** (niveaux, quêtes, journaux, total des hauts faits de combat, inventaire, équipement, banque, offres GE et position).
-   > **OSRS Toolkit Exporter n'est pas encore sur le Plugin Hub** ([en attente d'approbation](https://github.com/runelite/plugin-hub/pull/17152)). D'ici là, installe **Character Export** à la place : l'outil lit ses fichiers en secours, et tout fonctionne sauf les offres GE en direct et la position. Une fois OSRS Toolkit Exporter installé, Character Export n'est plus nécessaire.
-   *Optionnel :* **OSRS Toolkit Panel** (aide aux prix GE avec graphique, et panneau avec l'objectif bond, les flips et les alertes dans RuneLite), aussi [en attente d'approbation](https://github.com/runelite/plugin-hub/pull/17208).
+   > Tu utilises déjà **Character Export** ? Tu peux le désinstaller : OSRS Toolkit Exporter écrit tout ce dont l'outil a besoin. (L'outil lit encore les fichiers de Character Export en secours, seulement quand les nôtres manquent.)
+   *Optionnel :* **OSRS Toolkit Panel** (aide aux prix GE avec graphique, et panneau avec l'objectif bond, les flips et les alertes dans RuneLite).
 4. Connecte-toi et ouvre ta banque une fois.
 5. **Redémarre l'application Claude**, puis pose tes questions : *« Comment va mon GE ? »*, *« Où suis-je, quelle est la prochaine étape de ma quête ? »*
 
